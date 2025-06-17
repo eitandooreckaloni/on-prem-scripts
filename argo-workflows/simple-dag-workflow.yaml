@@ -11,7 +11,7 @@ spec:
       value: "cv-dataset-v1"
     - name: processing-mode
       value: "full"
- 
+
   templates:
   # Main DAG template
   - name: main-pipeline
@@ -31,7 +31,7 @@ spec:
       # Phase 2: Preparation (depends on validation)
       - name: prepare-data
         template: data-prep-task
-        dependencies: [validate-inputs, check-resources]
+        dependencies: [ validate-inputs, check-resources ]
         arguments:
           parameters:
           - name: dataset
@@ -40,7 +40,7 @@ spec:
       # Phase 3: Parallel Processing
       - name: process-images
         template: image-task
-        dependencies: [prepare-data]
+        dependencies: [ prepare-data ]
         arguments:
           parameters:
           - name: dataset
@@ -48,7 +48,7 @@ spec:
 
       - name: process-labels
         template: label-task
-        dependencies: [prepare-data]
+        dependencies: [ prepare-data ]
         arguments:
           parameters:
           - name: dataset
@@ -57,7 +57,7 @@ spec:
       # Phase 4: Quality Check (depends on processing)
       - name: quality-check
         template: quality-task
-        dependencies: [process-images, process-labels]
+        dependencies: [ process-images, process-labels ]
         arguments:
           parameters:
           - name: dataset
@@ -66,7 +66,7 @@ spec:
       # Phase 5: Conditional Upload (depends on quality)
       - name: upload-results
         template: upload-task
-        dependencies: [quality-check]
+        dependencies: [ quality-check ]
         when: "{{tasks.quality-check.outputs.parameters.score}} > 0.8"
         arguments:
           parameters:
@@ -76,7 +76,7 @@ spec:
       # Phase 6: Final Cleanup
       - name: cleanup
         template: cleanup-task
-        dependencies: [upload-results]
+        dependencies: [ upload-results ]
 
   # Task Templates
   - name: validate-task
@@ -85,31 +85,31 @@ spec:
       - name: dataset
     container:
       image: python:3.9-slim
-      command: [python, -c]
+      command: [ python, -c ]
       args:
       - |
         import sys
         dataset = "{{inputs.parameters.dataset}}"
         print(f"🔍 Validating dataset: {dataset}")
-        
+
         if len(dataset) < 5:
             print("❌ Dataset name too short")
             sys.exit(1)
-        
+
         print("✅ Validation passed")
 
   - name: resource-check-task
     container:
       image: python:3.9-slim
-      command: [python, -c]
+      command: [ python, -c ]
       args:
       - |
         import random
         print("🔧 Checking system resources...")
-        
+
         cpu_usage = random.randint(10, 80)
         memory_usage = random.randint(20, 70)
-        
+
         print(f"CPU: {cpu_usage}%")
         print(f"Memory: {memory_usage}%")
         print("✅ Resources available")
@@ -120,18 +120,18 @@ spec:
       - name: dataset
     container:
       image: python:3.9-slim
-      command: [python, -c]
+      command: [ python, -c ]
       args:
       - |
         import time
         dataset = "{{inputs.parameters.dataset}}"
         print(f"📁 Preparing data for: {dataset}")
-        
+
         steps = ["create_workspace", "download_data", "verify_integrity"]
         for step in steps:
             print(f"  {step}...")
             time.sleep(1)
-        
+
         print("✅ Data preparation complete")
 
   - name: image-task
@@ -140,22 +140,22 @@ spec:
       - name: dataset
     container:
       image: python:3.9-slim
-      command: [python, -c]
+      command: [ python, -c ]
       args:
       - |
         import time
         import random
         dataset = "{{inputs.parameters.dataset}}"
         print(f"🖼️  Processing images for: {dataset}")
-        
+
         operations = ["resize", "normalize", "augment"]
         processed = 0
-        
+
         for op in operations:
             print(f"  {op}...")
             time.sleep(2)
             processed += random.randint(50, 200)
-        
+
         print(f"✅ Processed {processed} images")
 
   - name: label-task
@@ -164,22 +164,22 @@ spec:
       - name: dataset
     container:
       image: python:3.9-slim
-      command: [python, -c]
+      command: [ python, -c ]
       args:
       - |
         import time
         import random
         dataset = "{{inputs.parameters.dataset}}"
         print(f"🏷️  Processing labels for: {dataset}")
-        
+
         tasks = ["validate_format", "check_consistency", "normalize"]
         labels_processed = 0
-        
+
         for task in tasks:
             print(f"  {task}...")
             time.sleep(1)
             labels_processed += random.randint(20, 100)
-        
+
         print(f"✅ Processed {labels_processed} labels")
 
   - name: quality-task
@@ -193,27 +193,27 @@ spec:
           path: /tmp/quality_score.txt
     container:
       image: python:3.9-slim
-      command: [python, -c]
+      command: [ python, -c ]
       args:
       - |
         import random
         dataset = "{{inputs.parameters.dataset}}"
         print(f"🎯 Quality check for: {dataset}")
-        
+
         # Simulate quality assessment
         image_quality = random.uniform(0.7, 0.98)
         label_quality = random.uniform(0.75, 0.95)
-        
+
         overall_score = (image_quality + label_quality) / 2
-        
+
         print(f"Image Quality: {image_quality:.3f}")
         print(f"Label Quality: {label_quality:.3f}")
         print(f"Overall Score: {overall_score:.3f}")
-        
+
         # Write score for downstream conditional
         with open('/tmp/quality_score.txt', 'w') as f:
             f.write(f"{overall_score:.3f}")
-        
+
         print("✅ Quality check complete")
 
   - name: upload-task
@@ -222,33 +222,33 @@ spec:
       - name: dataset
     container:
       image: python:3.9-slim
-      command: [python, -c]
+      command: [ python, -c ]
       args:
       - |
         import time
         dataset = "{{inputs.parameters.dataset}}"
         print(f"☁️  Uploading results for: {dataset}")
-        
+
         files = ["processed_images.tar", "processed_labels.json", "metadata.json"]
-        
+
         for file in files:
             print(f"  Uploading {file}...")
             time.sleep(1)
-        
+
         print("✅ Upload complete")
         print("🔗 Integration point: Use S3Utils for actual uploads")
 
   - name: cleanup-task
     container:
       image: python:3.9-slim
-      command: [python, -c]
+      command: [ python, -c ]
       args:
       - |
         print("🧹 Cleaning up temporary files...")
-        
+
         temp_files = ["temp_images/", "temp_labels/", "workspace/"]
         for temp in temp_files:
             print(f"  Removing {temp}")
-        
+
         print("✅ Cleanup complete")
         print("🎉 Pipeline finished successfully!") 

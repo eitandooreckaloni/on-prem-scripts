@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  argo-monitor:
+    build: .
+    container_name: argo-workflows-monitor
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - ARGO_NAMESPACE=${ARGO_NAMESPACE:-argo}
+      - DATABASE_PATH=/data/workflow_metrics.db
+    volumes:
+      - ./data:/data  # Persistent storage for SQLite
+      - ~/.kube:/root/.kube:ro  # Kubernetes config (for local dev)
+    restart: unless-stopped
+    networks:
+      - monitoring
+    
+  # Optional: Add PostgreSQL for production
+  postgres:
+    image: postgres:15-alpine
+    container_name: argo-monitor-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-argo_monitor}
+      POSTGRES_USER: ${POSTGRES_USER:-argo_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-argo_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - monitoring
+    profiles:
+      - production
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+
+# Create data directory for SQLite
+configs:
+  init:
+    content: |
+      #!/bin/bash
+      mkdir -p ./data
+      chmod 755 ./data 
