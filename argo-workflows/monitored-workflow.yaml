@@ -1,0 +1,324 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: monitored-ml-pipeline
+  namespace: argo
+  labels:
+    monitoring: "enabled"
+    pipeline-type: "ml-cv"
+spec:
+  entrypoint: monitored-pipeline
+  arguments:
+    parameters:
+    - name: dataset-name
+      value: "cv-dataset-v2"
+    - name: elasticsearch-host
+      value: "elasticsearch.monitoring.svc.cluster.local:9200" # Adjust for your setup
+    - name: pipeline-id
+      value: "{{workflow.uid}}"
+
+  templates:
+  # Main monitored pipeline
+  - name: monitored-pipeline
+    dag:
+      tasks:
+      - name: pipeline-start
+        template: timing-reporter
+        arguments:
+          parameters:
+          - name: event-type
+            value: "pipeline_start"
+          - name: task-name
+            value: "{{workflow.parameters.dataset-name}}-pipeline"
+
+      - name: validate-inputs
+        template: monitored-validate-task
+        dependencies: [ pipeline-start ]
+        arguments:
+          parameters:
+          - name: dataset
+            value: "{{workflow.parameters.dataset-name}}"
+
+      - name: process-data
+        template: monitored-processing-task
+        dependencies: [ validate-inputs ]
+        arguments:
+          parameters:
+          - name: dataset
+            value: "{{workflow.parameters.dataset-name}}"
+          - name: task-type
+            value: "data-processing"
+
+      - name: train-model
+        template: monitored-training-task
+        dependencies: [ process-data ]
+        arguments:
+          parameters:
+          - name: dataset
+            value: "{{workflow.parameters.dataset-name}}"
+
+      - name: pipeline-end
+        template: timing-reporter
+        dependencies: [ train-model ]
+        arguments:
+          parameters:
+          - name: event-type
+            value: "pipeline_complete"
+          - name: task-name
+            value: "{{workflow.parameters.dataset-name}}-pipeline"
+
+  # Enhanced task templates with monitoring
+  - name: monitored-validate-task
+    inputs:
+      parameters:
+      - name: dataset
+    dag:
+      tasks:
+      - name: start-timing
+        template: timing-reporter
+        arguments:
+          parameters:
+          - name: event-type
+            value: "task_start"
+          - name: task-name
+            value: "validate-inputs"
+
+      - name: validate-work
+        template: validate-work-task
+        dependencies: [ start-timing ]
+        arguments:
+          parameters:
+          - name: dataset
+            value: "{{inputs.parameters.dataset}}"
+
+      - name: end-timing
+        template: timing-reporter
+        dependencies: [ validate-work ]
+        arguments:
+          parameters:
+          - name: event-type
+            value: "task_complete"
+          - name: task-name
+            value: "validate-inputs"
+          - name: status
+            value: "{{tasks.validate-work.status}}"
+
+  - name: monitored-processing-task
+    inputs:
+      parameters:
+      - name: dataset
+      - name: task-type
+    dag:
+      tasks:
+      - name: start-timing
+        template: timing-reporter
+        arguments:
+          parameters:
+          - name: event-type
+            value: "task_start"
+          - name: task-name
+            value: "{{inputs.parameters.task-type}}"
+
+      - name: processing-work
+        template: processing-work-task
+        dependencies: [ start-timing ]
+        arguments:
+          parameters:
+          - name: dataset
+            value: "{{inputs.parameters.dataset}}"
+          - name: task-type
+            value: "{{inputs.parameters.task-type}}"
+
+      - name: end-timing
+        template: timing-reporter
+        dependencies: [ processing-work ]
+        arguments:
+          parameters:
+          - name: event-type
+            value: "task_complete"
+          - name: task-name
+            value: "{{inputs.parameters.task-type}}"
+          - name: status
+            value: "{{tasks.processing-work.status}}"
+
+  - name: monitored-training-task
+    inputs:
+      parameters:
+      - name: dataset
+    dag:
+      tasks:
+      - name: start-timing
+        template: timing-reporter
+        arguments:
+          parameters:
+          - name: event-type
+            value: "task_start"
+          - name: task-name
+            value: "model-training"
+
+      - name: training-work
+        template: training-work-task
+        dependencies: [ start-timing ]
+        arguments:
+          parameters:
+          - name: dataset
+            value: "{{inputs.parameters.dataset}}"
+
+      - name: end-timing
+        template: timing-reporter
+        dependencies: [ training-work ]
+        arguments:
+          parameters:
+          - name: event-type
+            value: "task_complete"
+          - name: task-name
+            value: "model-training"
+          - name: status
+            value: "{{tasks.training-work.status}}"
+
+  # Core timing reporter template
+  - name: timing-reporter
+    inputs:
+      parameters:
+      - name: event-type
+      - name: task-name
+      - name: status
+        value: "running"
+    container:
+      image: python:3.9-slim
+      command: [ python, -c ]
+      args:
+      - |
+        import json
+        import os
+        from datetime import datetime, timezone
+        import time
+
+        # Workflow metadata
+        workflow_name = "{{workflow.name}}"
+        workflow_uid = "{{workflow.uid}}"
+        task_name = "{{inputs.parameters.task-name}}"
+        event_type = "{{inputs.parameters.event-type}}"
+        status = "{{inputs.parameters.status}}"
+        dataset = "{{workflow.parameters.dataset-name}}"
+
+        # Timing data
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        # Performance metrics (simulated - in real implementation, collect actual metrics)
+        cpu_usage = os.getloadavg()[0] if hasattr(os, 'getloadavg') else 0.5
+
+        # Create monitoring record
+        monitoring_record = {
+            "@timestamp": timestamp,
+            "workflow": {
+                "name": workflow_name,
+                "uid": workflow_uid,
+                "dataset": dataset
+            },
+            "task": {
+                "name": task_name,
+                "event_type": event_type,  # task_start, task_complete, pipeline_start, pipeline_complete
+                "status": status
+            },
+            "metrics": {
+                "cpu_usage": cpu_usage,
+                "timestamp_epoch": int(time.time() * 1000)
+            },
+            "environment": {
+                "cluster": "development",
+                "namespace": "argo"
+            }
+        }
+
+        print("📊 MONITORING RECORD:")
+        print(json.dumps(monitoring_record, indent=2))
+
+        # In production, send to Elasticsearch:
+        # elasticsearch_client.index(
+        #     index="argo-workflow-metrics", 
+        #     body=monitoring_record
+        # )
+
+        print(f"✅ {event_type} recorded for {task_name}")
+
+  # Actual work templates
+  - name: validate-work-task
+    inputs:
+      parameters:
+      - name: dataset
+    container:
+      image: python:3.9-slim
+      command: [ python, -c ]
+      args:
+      - |
+        import time
+        import random
+
+        dataset = "{{inputs.parameters.dataset}}"
+        print(f"🔍 Validating dataset: {dataset}")
+
+        # Simulate variable work duration
+        work_duration = random.uniform(5, 15)  # 5-15 seconds
+        time.sleep(work_duration)
+
+        print(f"✅ Validation completed in {work_duration:.1f}s")
+
+  - name: processing-work-task
+    inputs:
+      parameters:
+      - name: dataset
+      - name: task-type
+    container:
+      image: python:3.9-slim
+      command: [ python, -c ]
+      args:
+      - |
+        import time
+        import random
+
+        dataset = "{{inputs.parameters.dataset}}"
+        task_type = "{{inputs.parameters.task-type}}"
+        print(f"⚙️  Processing {task_type} for dataset: {dataset}")
+
+        # Simulate data processing work
+        processing_steps = ["load_data", "transform", "validate", "save"]
+        total_duration = 0
+
+        for step in processing_steps:
+            step_duration = random.uniform(3, 8)
+            print(f"  {step}: {step_duration:.1f}s")
+            time.sleep(step_duration)
+            total_duration += step_duration
+
+        print(f"✅ Processing completed in {total_duration:.1f}s total")
+
+  - name: training-work-task
+    inputs:
+      parameters:
+      - name: dataset
+    container:
+      image: python:3.9-slim
+      command: [ python, -c ]
+      args:
+      - |
+        import time
+        import random
+
+        dataset = "{{inputs.parameters.dataset}}"
+        print(f"🤖 Training model on dataset: {dataset}")
+
+        # Simulate model training with epochs
+        epochs = 3
+        total_duration = 0
+
+        for epoch in range(1, epochs + 1):
+            epoch_duration = random.uniform(10, 20)
+            accuracy = random.uniform(0.7, 0.95)
+            
+            print(f"  Epoch {epoch}/{epochs}: {epoch_duration:.1f}s, accuracy: {accuracy:.3f}")
+            time.sleep(epoch_duration)
+            total_duration += epoch_duration
+
+        print(f"✅ Training completed in {total_duration:.1f}s total")
+        print(f"📈 Final model accuracy: {accuracy:.3f}") 

@@ -342,7 +342,7 @@ async def health_check():
 
 
 def create_dashboard_charts(stats: Dict) -> Dict:
-    """Create simple Plotly charts for dashboard"""
+    """Create comprehensive Plotly charts for dashboard"""
     charts = {}
     
     # Workflow status pie chart
@@ -351,9 +351,14 @@ def create_dashboard_charts(stats: Dict) -> Dict:
         fig = go.Figure(data=[go.Pie(
             labels=[item['status'] for item in status_data],
             values=[item['count'] for item in status_data],
-            hole=0.3
+            hole=0.3,
+            marker_colors=['#28a745', '#dc3545', '#ffc107', '#17a2b8']
         )])
-        fig.update_layout(title="Workflow Status Distribution")
+        fig.update_layout(
+            title="Workflow Status Distribution",
+            height=400,
+            showlegend=True
+        )
         charts['status_pie'] = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
     
     # Workflow duration bar chart
@@ -361,10 +366,69 @@ def create_dashboard_charts(stats: Dict) -> Dict:
         duration_data = stats['workflow_durations']
         fig = go.Figure(data=[go.Bar(
             x=[item['name'] for item in duration_data],
-            y=[item['avg_duration'] for item in duration_data]
+            y=[item['avg_duration'] for item in duration_data],
+            marker_color='#667eea',
+            text=[f"{item['avg_duration']:.1f}s" for item in duration_data],
+            textposition='auto'
         )])
-        fig.update_layout(title="Average Workflow Duration (seconds)")
+        fig.update_layout(
+            title="Average Workflow Duration",
+            xaxis_title="Workflow Name",
+            yaxis_title="Duration (seconds)",
+            height=400
+        )
         charts['duration_bar'] = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+    
+    # Task duration breakdown chart
+    if stats['task_durations']:
+        task_data = stats['task_durations']
+        fig = go.Figure(data=[go.Bar(
+            x=[item['task_name'] for item in task_data],
+            y=[item['avg_duration'] for item in task_data],
+            marker_color=['#28a745' if item['avg_duration'] < 30 else 
+                         '#ffc107' if item['avg_duration'] < 120 else '#dc3545' 
+                         for item in task_data],
+            text=[f"{item['avg_duration']:.1f}s" for item in task_data],
+            textposition='auto'
+        )])
+        fig.update_layout(
+            title="Task Performance Breakdown",
+            xaxis_title="Task Name",
+            yaxis_title="Average Duration (seconds)",
+            height=400,
+            xaxis_tickangle=-45
+        )
+        charts['task_breakdown'] = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+    
+    # Workflow timeline/duration over time
+    if stats['recent_workflows']:
+        timeline_data = [wf for wf in stats['recent_workflows'] if wf['duration_seconds'] and wf['duration_seconds'] > 0]
+        if timeline_data:
+            fig = go.Figure()
+            
+            # Group by workflow name for different traces
+            workflow_names = list(set([wf['name'] for wf in timeline_data]))
+            colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe']
+            
+            for i, wf_name in enumerate(workflow_names):
+                wf_data = [wf for wf in timeline_data if wf['name'] == wf_name]
+                fig.add_trace(go.Scatter(
+                    x=[wf['created_at'] for wf in wf_data],
+                    y=[wf['duration_seconds'] for wf in wf_data],
+                    mode='markers+lines',
+                    name=wf_name,
+                    marker=dict(size=10, color=colors[i % len(colors)]),
+                    line=dict(width=2, color=colors[i % len(colors)])
+                ))
+            
+            fig.update_layout(
+                title="Workflow Duration Timeline",
+                xaxis_title="Execution Time",
+                yaxis_title="Duration (seconds)",
+                height=400,
+                hovermode='closest'
+            )
+            charts['timeline'] = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
     
     return charts
 

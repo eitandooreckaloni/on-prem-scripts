@@ -63,6 +63,9 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+        .chart-full-width {
+            grid-column: 1 / -1;
+        }
         .table-container {
             background: white;
             border-radius: 10px;
@@ -126,6 +129,13 @@
         .loading {
             opacity: 0.6;
         }
+        .chart-section-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin: 30px 0 20px 0;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -141,23 +151,31 @@
         <div class="stat-card">
             <h3>Total Workflows</h3>
             <div class="stat-value" id="total-workflows">
-                {{ stats.status_counts | length or 0 }}
+                {{ stats.recent_workflows | length or 0 }}
             </div>
         </div>
         <div class="stat-card">
             <h3>Succeeded</h3>
             <div class="stat-value" style="color: #28a745;" id="succeeded-workflows">
-                {% for item in stats.status_counts %}
-                    {% if item.status == 'Succeeded' %}{{ item.count }}{% endif %}
+                {% set succeeded_count = 0 %}
+                {% for workflow in stats.recent_workflows %}
+                    {% if workflow.status == 'Succeeded' %}
+                        {% set succeeded_count = succeeded_count + 1 %}
+                    {% endif %}
                 {% endfor %}
+                {{ succeeded_count }}
             </div>
         </div>
         <div class="stat-card">
             <h3>Failed</h3>
             <div class="stat-value" style="color: #dc3545;" id="failed-workflows">
-                {% for item in stats.status_counts %}
-                    {% if item.status == 'Failed' %}{{ item.count }}{% endif %}
+                {% set failed_count = 0 %}
+                {% for workflow in stats.recent_workflows %}
+                    {% if workflow.status == 'Failed' %}
+                        {% set failed_count = failed_count + 1 %}
+                    {% endif %}
                 {% endfor %}
+                {{ failed_count }}
             </div>
         </div>
         <div class="stat-card">
@@ -166,25 +184,47 @@
                 {% if stats.workflow_durations %}
                     {{ "%.0f"|format(stats.workflow_durations[0].avg_duration or 0) }}s
                 {% else %}
-                    0s
+                    {% set total_duration = 0 %}
+                    {% set count = 0 %}
+                    {% for workflow in stats.recent_workflows %}
+                        {% if workflow.duration_seconds and workflow.duration_seconds > 0 %}
+                            {% set total_duration = total_duration + workflow.duration_seconds %}
+                            {% set count = count + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if count > 0 %}
+                        {{ "%.0f"|format(total_duration / count) }}s
+                    {% else %}
+                        0s
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Charts -->
+    <div class="chart-section-title">📊 Workflow Performance Analytics</div>
+
+    <!-- Enhanced Charts -->
     <div class="charts-grid">
-        {% if charts.status_pie %}
+        <!-- Workflow Duration Chart -->
+        <div class="chart-container">
+            <div id="workflow-duration-chart"></div>
+        </div>
+        
+        <!-- Task Breakdown Chart -->
+        <div class="chart-container">
+            <div id="task-breakdown-chart"></div>
+        </div>
+        
+        <!-- Timeline Chart (Full Width) -->
+        <div class="chart-container chart-full-width">
+            <div id="timeline-chart"></div>
+        </div>
+        
+        <!-- Status Distribution -->
         <div class="chart-container">
             <div id="status-chart"></div>
         </div>
-        {% endif %}
-        
-        {% if charts.duration_bar %}
-        <div class="chart-container">
-            <div id="duration-chart"></div>
-        </div>
-        {% endif %}
     </div>
 
     <!-- Recent Workflows Table -->
@@ -210,7 +250,7 @@
                         </span>
                     </td>
                     <td>
-                        {% if workflow.duration_seconds %}
+                        {% if workflow.duration_seconds and workflow.duration_seconds > 0 %}
                             {{ "%.1f"|format(workflow.duration_seconds) }}s
                         {% else %}
                             -
@@ -260,16 +300,124 @@
     {% endif %}
 
     <script>
-        // Render charts if data is available
-        {% if charts.status_pie %}
-        var statusChart = {{ charts.status_pie | safe }};
-        Plotly.newPlot('status-chart', statusChart.data, statusChart.layout, {responsive: true});
-        {% endif %}
-        
-        {% if charts.duration_bar %}
-        var durationChart = {{ charts.duration_bar | safe }};
-        Plotly.newPlot('duration-chart', durationChart.data, durationChart.layout, {responsive: true});
-        {% endif %}
+        // Create comprehensive charts
+        function createCharts() {
+            // Workflow Duration Chart
+            const workflowData = {{ stats.recent_workflows | tojson }};
+            const completedWorkflows = workflowData.filter(wf => wf.duration_seconds && wf.duration_seconds > 0);
+            
+            if (completedWorkflows.length > 0) {
+                const workflowChart = {
+                    data: [{
+                        x: completedWorkflows.map(wf => wf.name),
+                        y: completedWorkflows.map(wf => wf.duration_seconds),
+                        type: 'bar',
+                        marker: {
+                            color: '#667eea',
+                            line: { color: '#4a5568', width: 1 }
+                        },
+                        text: completedWorkflows.map(wf => `${wf.duration_seconds.toFixed(1)}s`),
+                        textposition: 'auto'
+                    }],
+                    layout: {
+                        title: 'Workflow Duration Comparison',
+                        xaxis: { title: 'Workflow Name', tickangle: -45 },
+                        yaxis: { title: 'Duration (seconds)' },
+                        height: 400,
+                        margin: { b: 120 }
+                    }
+                };
+                Plotly.newPlot('workflow-duration-chart', workflowChart.data, workflowChart.layout, {responsive: true});
+            }
+
+            // Task Breakdown Chart
+            const taskData = {{ stats.task_durations | tojson }};
+            if (taskData && taskData.length > 0) {
+                const taskChart = {
+                    data: [{
+                        x: taskData.map(task => task.task_name),
+                        y: taskData.map(task => task.avg_duration),
+                        type: 'bar',
+                        marker: {
+                            color: taskData.map(task => 
+                                task.avg_duration < 30 ? '#28a745' : 
+                                task.avg_duration < 120 ? '#ffc107' : '#dc3545'
+                            )
+                        },
+                        text: taskData.map(task => `${task.avg_duration.toFixed(1)}s`),
+                        textposition: 'auto'
+                    }],
+                    layout: {
+                        title: 'Task Performance Breakdown',
+                        xaxis: { title: 'Task Name', tickangle: -45 },
+                        yaxis: { title: 'Average Duration (seconds)' },
+                        height: 400,
+                        margin: { b: 120 }
+                    }
+                };
+                Plotly.newPlot('task-breakdown-chart', taskChart.data, taskChart.layout, {responsive: true});
+            }
+
+            // Timeline Chart
+            if (completedWorkflows.length > 0) {
+                const timelineChart = {
+                    data: [{
+                        x: completedWorkflows.map(wf => wf.created_at),
+                        y: completedWorkflows.map(wf => wf.duration_seconds),
+                        mode: 'markers+lines',
+                        type: 'scatter',
+                        marker: {
+                            size: 12,
+                            color: completedWorkflows.map(wf => 
+                                wf.status === 'Succeeded' ? '#28a745' : 
+                                wf.status === 'Failed' ? '#dc3545' : '#ffc107'
+                            ),
+                            line: { color: '#fff', width: 2 }
+                        },
+                        line: { color: '#667eea', width: 3 },
+                        text: completedWorkflows.map(wf => `${wf.name}<br>${wf.duration_seconds.toFixed(1)}s`),
+                        hovertemplate: '%{text}<extra></extra>'
+                    }],
+                    layout: {
+                        title: 'Workflow Duration Timeline',
+                        xaxis: { title: 'Execution Time' },
+                        yaxis: { title: 'Duration (seconds)' },
+                        height: 400,
+                        hovermode: 'closest'
+                    }
+                };
+                Plotly.newPlot('timeline-chart', timelineChart.data, timelineChart.layout, {responsive: true});
+            }
+
+            // Status Distribution
+            const statusCounts = {};
+            workflowData.forEach(wf => {
+                statusCounts[wf.status] = (statusCounts[wf.status] || 0) + 1;
+            });
+
+            if (Object.keys(statusCounts).length > 0) {
+                const statusChart = {
+                    data: [{
+                        labels: Object.keys(statusCounts),
+                        values: Object.values(statusCounts),
+                        type: 'pie',
+                        hole: 0.3,
+                        marker: {
+                            colors: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
+                        }
+                    }],
+                    layout: {
+                        title: 'Workflow Status Distribution',
+                        height: 400,
+                        showlegend: true
+                    }
+                };
+                Plotly.newPlot('status-chart', statusChart.data, statusChart.layout, {responsive: true});
+            }
+        }
+
+        // Initialize charts when page loads
+        document.addEventListener('DOMContentLoaded', createCharts);
 
         // Auto-refresh functionality
         async function refreshData() {
