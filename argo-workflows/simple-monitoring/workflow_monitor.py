@@ -607,7 +607,13 @@ class SimpleWorkflowMonitor:
 
 
 # Global monitor instance
-monitor = SimpleWorkflowMonitor(db_path="./data/workflow_metrics.db")
+# Ensure the /data directory exists
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(script_dir, "data")
+os.makedirs(data_dir, exist_ok=True)
+db_path = os.path.join(data_dir, "workflow_metrics.db")
+
+monitor = SimpleWorkflowMonitor(db_path=db_path)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
