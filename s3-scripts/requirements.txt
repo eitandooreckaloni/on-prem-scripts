@@ -2,3 +2,4 @@ boto3==1.34.82
 botocore==1.34.82
 python-dateutil==2.9.0.post0
 humanfriendly==10.0
+typing-extensions>=4.0.0
