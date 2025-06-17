@@ -73,10 +73,11 @@ class S3Utils:
     def _verify_connection(self) -> None:
         """Verify S3 connection is working"""
         try:
-            self.s3_client.head_bucket(Bucket=self.bucket)
-            self.logger.info(f"Successfully connected to bucket: {self.bucket}")
+            # Just test the connection by listing service info, not requiring bucket to exist
+            self.s3_client.list_buckets()
+            self.logger.info(f"Successfully connected to S3 service")
         except Exception as e:
-            self.logger.error(f"Failed to connect to bucket {self.bucket}: {e}")
+            self.logger.error(f"Failed to connect to S3 service: {e}")
             raise
     
     def ensure_bucket_exists(self) -> bool:
