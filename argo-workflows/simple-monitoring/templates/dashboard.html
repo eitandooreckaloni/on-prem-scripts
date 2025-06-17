@@ -266,6 +266,113 @@
             margin-bottom: 20px;
         }
 
+        /* Performance indicators */
+        .duration-comparison {
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .performance-faster {
+            color: #28a745;
+        }
+        .performance-slower {
+            color: #dc3545;
+        }
+        .performance-normal {
+            color: #6c757d;
+        }
+
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .modal-header {
+            background: #667eea;
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h2 {
+            margin: 0;
+        }
+        .close-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .close-button:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .modal-body {
+            padding: 20px;
+        }
+        .workflow-summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .performance-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e9ecef;
+        }
+        .metric-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .steps-table {
+            margin-top: 20px;
+        }
+        .step-row {
+            cursor: pointer;
+        }
+        .step-row:hover {
+            background-color: #f1f3f4;
+        }
+
         /* Collapsible sections */
         .collapsible {
             background: #667eea;
@@ -307,8 +414,8 @@
         <h1>🚀 Argo Workflows Monitor</h1>
         <p>Comprehensive real-time performance tracking with anomaly detection and filtering</p>
         <div class="button-group">
-            <button class="refresh-button" onclick="refreshData()">🔄 Refresh Data</button>
-            <button class="refresh-button" onclick="collectData()">📊 Collect Now</button>
+        <button class="refresh-button" onclick="refreshData()">🔄 Refresh Data</button>
+        <button class="refresh-button" onclick="collectData()">📊 Collect Now</button>
             <button class="filter-button" onclick="toggleFilters()">🔍 Toggle Filters</button>
         </div>
     </div>
@@ -389,19 +496,19 @@
         <div class="stat-card">
             <h3>Average Duration</h3>
             <div class="stat-value" style="color: #fd7e14;" id="avg-duration">
-                {% set total_duration = 0 %}
-                {% set count = 0 %}
-                {% for workflow in stats.recent_workflows %}
-                    {% if workflow.duration_seconds and workflow.duration_seconds > 0 %}
-                        {% set total_duration = total_duration + workflow.duration_seconds %}
-                        {% set count = count + 1 %}
+                    {% set total_duration = 0 %}
+                    {% set count = 0 %}
+                    {% for workflow in stats.recent_workflows %}
+                        {% if workflow.duration_seconds and workflow.duration_seconds > 0 %}
+                            {% set total_duration = total_duration + workflow.duration_seconds %}
+                            {% set count = count + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if count > 0 %}
+                        {{ "%.0f"|format(total_duration / count) }}s
+                    {% else %}
+                        0s
                     {% endif %}
-                {% endfor %}
-                {% if count > 0 %}
-                    {{ "%.0f"|format(total_duration / count) }}s
-                {% else %}
-                    0s
-                {% endif %}
             </div>
         </div>
         <div class="stat-card">
@@ -462,9 +569,10 @@
                     <th>Workflow Name</th>
                     <th>Status</th>
                     <th>Duration</th>
+                    <th>vs Average</th>
                     <th>Created At</th>
                     <th>Tasks</th>
-                    <th>Success Rate</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="workflows-tbody">
@@ -479,27 +587,59 @@
                     <td class="duration-cell">
                         {% if workflow.duration_seconds and workflow.duration_seconds > 0 %}
                             <span class="{% if workflow.duration_seconds < 30 %}duration-fast{% elif workflow.duration_seconds > 120 %}duration-slow{% else %}duration-normal{% endif %}">
-                                {{ "%.1f"|format(workflow.duration_seconds) }}s
+                            {{ "%.1f"|format(workflow.duration_seconds) }}s
                             </span>
                         {% else %}
                             -
                         {% endif %}
                     </td>
+                    <td>
+                        <span id="comparison-{{ workflow.uid }}" class="duration-comparison">Loading...</span>
+                    </td>
                     <td>{{ workflow.created_at[:19] if workflow.created_at else '-' }}</td>
                     <td>{{ workflow.task_count or 0 }}</td>
                     <td>
-                        {% if workflow.status == 'Succeeded' %}
-                            <span style="color: #28a745;">100%</span>
-                        {% elif workflow.status == 'Failed' %}
-                            <span style="color: #dc3545;">0%</span>
-                        {% else %}
-                            <span style="color: #6c757d;">-</span>
-                        {% endif %}
+                        <button class="filter-button" onclick="showWorkflowDetails('{{ workflow.uid }}', '{{ workflow.name }}')">
+                            📊 Details
+                        </button>
+                        <button class="filter-button" onclick="showWorkflowTrends('{{ workflow.name }}')">
+                            📈 Trends
+                        </button>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <!-- Workflow Details Modal -->
+    <div id="workflow-details-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="workflow-details-title">Workflow Details</h2>
+                <button class="close-button" onclick="closeModal('workflow-details-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="workflow-details-content">
+                    <div class="loading-spinner">Loading workflow details...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workflow Trends Modal -->
+    <div id="workflow-trends-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="workflow-trends-title">Workflow Performance Trends</h2>
+                <button class="close-button" onclick="closeModal('workflow-trends-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="workflow-trends-content">
+                    <div class="loading-spinner">Loading trends...</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Collapsible Task Performance Section -->
@@ -513,38 +653,38 @@
                 <span class="table-count" id="tasks-count">{{ stats.task_durations | length }} tasks</span>
             </div>
             <table id="tasks-table">
-                <thead>
-                    <tr>
-                        <th>Task Name</th>
-                        <th>Average Duration</th>
+            <thead>
+                <tr>
+                    <th>Task Name</th>
+                    <th>Average Duration</th>
                         <th>Executions</th>
                         <th>Performance Level</th>
-                    </tr>
-                </thead>
+                </tr>
+            </thead>
                 <tbody id="tasks-tbody">
-                    {% for task in stats.task_durations %}
-                    <tr>
-                        <td>{{ task.task_name }}</td>
+                {% for task in stats.task_durations %}
+                <tr>
+                    <td>{{ task.task_name }}</td>
                         <td class="duration-cell">
                             <span class="{% if task.avg_duration < 30 %}duration-fast{% elif task.avg_duration > 120 %}duration-slow{% else %}duration-normal{% endif %}">
                                 {{ "%.1f"|format(task.avg_duration) }}s
                             </span>
                         </td>
                         <td>{{ task.execution_count or 1 }}</td>
-                        <td>
-                            {% if task.avg_duration < 30 %}
-                                <span class="status-badge status-succeeded">Fast</span>
+                    <td>
+                        {% if task.avg_duration < 30 %}
+                            <span class="status-badge status-succeeded">Fast</span>
                             {% elif task.avg_duration > 120 %}
-                                <span class="status-badge status-failed">Slow</span>
+                            <span class="status-badge status-failed">Slow</span>
                             {% else %}
                                 <span class="status-badge status-running">Normal</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     </div>
 
     <!-- Collapsible Anomalies Section -->
@@ -595,6 +735,7 @@
             createCharts();
             loadAnomalies();
             loadFilterOptions();
+            loadWorkflowComparisons();
             
             // Auto-refresh every 2 minutes
             setInterval(refreshData, 120000);
@@ -603,8 +744,8 @@
         // Create comprehensive charts
         function createCharts() {
             // Get data from server-side rendering
-            const workflowData = {{ stats.recent_workflows | tojson }};
-            const taskData = {{ stats.task_durations | tojson }};
+            const workflowData = JSON.parse('{{ stats.recent_workflows | tojson | safe }}');
+            const taskData = JSON.parse('{{ stats.task_durations | tojson | safe }}');
             
             // Status Distribution Chart
             const statusCounts = {};
@@ -613,14 +754,25 @@
             });
             
             if (Object.keys(statusCounts).length > 0) {
+                const statusColorMap = {
+                    'Succeeded': '#28a745',
+                    'Failed': '#dc3545',
+                    'Error': '#dc3545',
+                    'Running': '#ffc107',
+                    'Pending': '#17a2b8',
+                    'default': '#6c757d'
+                };
+                const labels = Object.keys(statusCounts);
+                const chartColors = labels.map(label => statusColorMap[label] || statusColorMap['default']);
+                
                 const statusChart = {
                     data: [{
-                        labels: Object.keys(statusCounts),
+                        labels: labels,
                         values: Object.values(statusCounts),
                         type: 'pie',
                         hole: 0.3,
                         marker: {
-                            colors: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
+                            colors: chartColors
                         }
                     }],
                     layout: {
@@ -644,7 +796,7 @@
                             color: '#667eea',
                             line: { color: '#4a5568', width: 1 }
                         },
-                        text: completedWorkflows.map(wf => `${wf.duration_seconds.toFixed(1)}s`),
+                        text: completedWorkflows.map(wf => wf.duration_seconds.toFixed(1) + 's'),
                         textposition: 'auto'
                     }],
                     layout: {
@@ -671,7 +823,7 @@
                                 task.avg_duration < 120 ? '#ffc107' : '#dc3545'
                             )
                         },
-                        text: taskData.map(task => `${task.avg_duration.toFixed(1)}s`),
+                        text: taskData.map(task => task.avg_duration.toFixed(1) + 's'),
                         textposition: 'auto'
                     }],
                     layout: {
@@ -1013,15 +1165,28 @@
             data.workflows.forEach(wf => {
                 statusCounts[wf.status] = (statusCounts[wf.status] || 0) + 1;
             });
-            
+
             if (Object.keys(statusCounts).length > 0) {
+                const statusColorMap = {
+                    'Succeeded': '#28a745',
+                    'Failed': '#dc3545',
+                    'Error': '#dc3545',
+                    'Running': '#ffc107',
+                    'Pending': '#17a2b8',
+                    'default': '#6c757d'
+                };
+                const labels = Object.keys(statusCounts);
+                const chartColors = labels.map(label => statusColorMap[label] || statusColorMap['default']);
+                
                 const statusChart = {
                     data: [{
-                        labels: Object.keys(statusCounts),
+                        labels: labels,
                         values: Object.values(statusCounts),
                         type: 'pie',
                         hole: 0.3,
-                        marker: { colors: ['#28a745', '#dc3545', '#ffc107', '#17a2b8'] }
+                        marker: {
+                            colors: chartColors
+                        }
                     }],
                     layout: {
                         title: 'Filtered Workflow Status Distribution',
@@ -1090,6 +1255,299 @@
                 button.textContent = originalText;
                 button.disabled = false;
             }
+        }
+
+        // Load workflow performance comparisons
+        async function loadWorkflowComparisons() {
+            try {
+                const workflowData = JSON.parse('{{ stats.recent_workflows | tojson | safe }}');
+                
+                for (const workflow of workflowData) {
+                    if (workflow.uid && workflow.duration_seconds > 0) {
+                        const response = await fetch('/api/workflow/' + workflow.name + '/trends?days=30');
+                        const trendsData = await response.json();
+                        
+                        const comparisonEl = document.getElementById('comparison-' + workflow.uid);
+                        if (comparisonEl && trendsData.avg_duration > 0) {
+                            const deviation = workflow.duration_seconds - trendsData.avg_duration;
+                            const percentChange = (deviation / trendsData.avg_duration * 100).toFixed(1);
+                            
+                            let className = 'performance-normal';
+                            let symbol = '≈';
+                            
+                            if (Math.abs(deviation) > trendsData.avg_duration * 0.2) {
+                                if (deviation > 0) {
+                                    className = 'performance-slower';
+                                    symbol = '+';
+                                } else {
+                                    className = 'performance-faster';
+                                    symbol = '';
+                                }
+                            }
+                            
+                            comparisonEl.className = 'duration-comparison ' + className;
+                            comparisonEl.textContent = symbol + percentChange + '%';
+                            comparisonEl.title = 'Current: ' + workflow.duration_seconds.toFixed(1) + 's, Average: ' + trendsData.avg_duration.toFixed(1) + 's';
+                        } else if (comparisonEl) {
+                            comparisonEl.textContent = '-';
+                        }
+                    } else {
+                        const comparisonEl = document.getElementById('comparison-' + (workflow.uid || ''));
+                        if (comparisonEl) {
+                             comparisonEl.textContent = '-';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading workflow comparisons:', error);
+            }
+        }
+
+        // Show workflow details modal
+        async function showWorkflowDetails(workflowUid, workflowName) {
+            const modal = document.getElementById('workflow-details-modal');
+            const title = document.getElementById('workflow-details-title');
+            const content = document.getElementById('workflow-details-content');
+            
+            title.textContent = workflowName + ' - Details';
+            content.innerHTML = '<div class="loading-spinner">Loading workflow details...</div>';
+            modal.style.display = 'flex';
+            
+            try {
+                const response = await fetch('/api/workflow/' + workflowUid);
+                const data = await response.json();
+                
+                if (data.error) {
+                    content.innerHTML = '<div class="no-data"><h3>Error</h3><p>' + data.error + '</p></div>';
+                    return;
+                }
+                
+                content.innerHTML = renderWorkflowDetails(data);
+            } catch (error) {
+                console.error('Error loading workflow details:', error);
+                content.innerHTML = '<div class="no-data"><h3>Error</h3><p>Failed to load workflow details</p></div>';
+            }
+        }
+
+        // Show workflow trends modal
+        async function showWorkflowTrends(workflowName) {
+            const modal = document.getElementById('workflow-trends-modal');
+            const title = document.getElementById('workflow-trends-title');
+            const content = document.getElementById('workflow-trends-content');
+            
+            title.textContent = workflowName + ' - Performance Trends';
+            content.innerHTML = '<div class="loading-spinner">Loading trends...</div>';
+            modal.style.display = 'flex';
+            
+            try {
+                const response = await fetch('/api/workflow/' + encodeURIComponent(workflowName) + '/trends?days=30');
+                const data = await response.json();
+                
+                content.innerHTML = renderWorkflowTrends(data);
+                
+                // Create trends chart
+                setTimeout(() => createTrendsChart(data), 100);
+            } catch (error) {
+                console.error('Error loading workflow trends:', error);
+                content.innerHTML = '<div class="no-data"><h3>Error</h3><p>Failed to load workflow trends</p></div>';
+            }
+        }
+
+        // Render workflow details
+        function renderWorkflowDetails(data) {
+            const workflow = data.workflow;
+            const tasks = data.tasks;
+            const performance = data.performance_comparison;
+            
+            let html = '<div class="workflow-summary">' +
+                '<h3>' + workflow.name + '</h3>' +
+                '<div class="performance-metrics">' +
+                    '<div class="metric-card">' +
+                        '<div class="metric-value">' + (workflow.duration_seconds ? workflow.duration_seconds.toFixed(1) + 's' : 'N/A') + '</div>' +
+                        '<div class="metric-label">Total Duration</div>' +
+                    '</div>' +
+                    '<div class="metric-card">' +
+                        '<div class="metric-value status-' + workflow.status.toLowerCase() + '">' + workflow.status + '</div>' +
+                        '<div class="metric-label">Status</div>' +
+                    '</div>' +
+                    '<div class="metric-card">' +
+                        '<div class="metric-value">' + data.task_count + '</div>' +
+                        '<div class="metric-label">Total Steps</div>' +
+                    '</div>' +
+                    '<div class="metric-card">' +
+                        '<div class="metric-value">' + data.historical_executions + '</div>' +
+                        '<div class="metric-label">Historical Runs</div>' +
+                    '</div>';
+            
+            if (performance) {
+                const performanceClass = performance.performance_level === 'fast' ? 'performance-faster' : 
+                                       performance.performance_level === 'slow' ? 'performance-slower' : 'performance-normal';
+                html += '<div class="metric-card">' +
+                            '<div class="metric-value ' + performanceClass + '">' +
+                                (performance.deviation_percent > 0 ? '+' : '') + performance.deviation_percent.toFixed(1) + '%' +
+                            '</div>' +
+                            '<div class="metric-label">vs Average (' + performance.historical_avg.toFixed(1) + 's)</div>' +
+                        '</div>';
+            }
+            
+            html += '</div>' +
+                '</div>' +
+                '<div class="table-container steps-table">' +
+                    '<div class="table-header">' +
+                        '<span>Workflow Steps</span>' +
+                        '<span class="table-count">' + tasks.length + ' steps</span>' +
+                    '</div>' +
+                    '<table>' +
+                        '<thead>' +
+                            '<tr>' +
+                                '<th>Step Name</th>' +
+                                '<th>Status</th>' +
+                                '<th>Duration</th>' +
+                                '<th>vs Average</th>' +
+                                '<th>Started</th>' +
+                                '<th>Finished</th>' +
+                            '</tr>' +
+                        '</thead>' +
+                        '<tbody>';
+            
+            tasks.forEach(task => {
+                const duration = task.duration_seconds ? task.duration_seconds.toFixed(1) + 's' : 'N/A';
+                let comparison = 'N/A';
+                let comparisonClass = '';
+                
+                if (task.performance_comparison) {
+                    const perf = task.performance_comparison;
+                    const symbol = perf.deviation_percent > 0 ? '+' : '';
+                    comparison = symbol + perf.deviation_percent.toFixed(1) + '%';
+                    comparisonClass = perf.performance_level === 'fast' ? 'performance-faster' : 
+                                     perf.performance_level === 'slow' ? 'performance-slower' : 'performance-normal';
+                }
+                
+                html += '<tr class="step-row">' +
+                        '<td>' + task.task_name + '</td>' +
+                        '<td><span class="status-badge status-' + (task.status || 'unknown').toLowerCase() + '">' + (task.status || 'Unknown') + '</span></td>' +
+                        '<td class="duration-cell">' + duration + '</td>' +
+                        '<td class="' + comparisonClass + '">' + comparison + '</td>' +
+                        '<td>' + (task.started_at ? task.started_at.substring(0, 19) : 'N/A') + '</td>' +
+                        '<td>' + (task.finished_at ? task.finished_at.substring(0, 19) : 'N/A') + '</td>' +
+                    '</tr>';
+            });
+            
+            html += '</tbody>' +
+                    '</table>' +
+                '</div>';
+            
+            return html;
+        }
+
+        // Render workflow trends
+        function renderWorkflowTrends(data) {
+            let executionsHtml = '';
+            data.executions.forEach(exec => {
+                executionsHtml += '<tr>' +
+                    '<td>#' + exec.execution_number + '</td>' +
+                    '<td class="duration-cell">' + (exec.duration_seconds ? exec.duration_seconds.toFixed(1) + 's' : 'N/A') + '</td>' +
+                    '<td class="duration-cell">' + (exec.rolling_avg ? exec.rolling_avg.toFixed(1) + 's' : 'N/A') + '</td>' +
+                    '<td><span class="status-badge status-' + exec.status.toLowerCase() + '">' + exec.status + '</span></td>' +
+                    '<td>' + (exec.created_at ? exec.created_at.substring(0, 19) : 'N/A') + '</td>' +
+                '</tr>';
+            });
+            
+            return '<div class="workflow-summary">' +
+                    '<h3>' + data.workflow_name + ' - Performance Analysis</h3>' +
+                    '<div class="performance-metrics">' +
+                        '<div class="metric-card">' +
+                            '<div class="metric-value">' + data.total_executions + '</div>' +
+                            '<div class="metric-label">Total Executions</div>' +
+                        '</div>' +
+                        '<div class="metric-card">' +
+                            '<div class="metric-value">' + data.avg_duration.toFixed(1) + 's</div>' +
+                            '<div class="metric-label">Average Duration</div>' +
+                        '</div>' +
+                        '<div class="metric-card">' +
+                            '<div class="metric-value ' + (data.trend_direction === 'improving' ? 'performance-faster' : 'performance-normal') + '">' +
+                                data.trend_direction +
+                            '</div>' +
+                            '<div class="metric-label">Trend Direction</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="chart-container">' +
+                    '<div id="trends-chart"></div>' +
+                '</div>' +
+                '<div class="table-container">' +
+                    '<div class="table-header">' +
+                        '<span>Recent Executions</span>' +
+                        '<span class="table-count">' + data.executions.length + ' executions</span>' +
+                    '</div>' +
+                    '<table>' +
+                        '<thead>' +
+                            '<tr>' +
+                                '<th>Execution #</th>' +
+                                '<th>Duration</th>' +
+                                '<th>Rolling Average</th>' +
+                                '<th>Status</th>' +
+                                '<th>Date</th>' +
+                            '</tr>' +
+                        '</thead>' +
+                        '<tbody>' +
+                            executionsHtml +
+                        '</tbody>' +
+                    '</table>' +
+                '</div>';
+        }
+
+        // Create trends chart
+        function createTrendsChart(data) {
+            const executions = data.executions.filter(e => e.duration_seconds > 0);
+            
+            if (executions.length === 0) return;
+            
+            const fig = {
+                data: [
+                    {
+                        x: executions.map(e => e.created_at),
+                        y: executions.map(e => e.duration_seconds),
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        name: 'Actual Duration',
+                        line: { color: '#667eea', width: 3 },
+                        marker: { size: 8, color: '#667eea' }
+                    },
+                    {
+                        x: executions.map(e => e.created_at),
+                        y: executions.map(e => e.rolling_avg),
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'Rolling Average',
+                        line: { color: '#28a745', width: 2, dash: 'dash' }
+                    }
+                ],
+                layout: {
+                    title: data.workflow_name + ' - Duration Over Time',
+                    xaxis: { title: 'Execution Time' },
+                    yaxis: { title: 'Duration (seconds)' },
+                    height: 400,
+                    hovermode: 'x'
+                }
+            };
+            
+            Plotly.newPlot('trends-chart', fig.data, fig.layout, {responsive: true});
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
         }
     </script>
 </body>

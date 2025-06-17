@@ -475,6 +475,136 @@ class SimpleWorkflowMonitor:
             'workflow_performance': performance_df.fillna(0).to_dict('records')
         }
 
+    def get_workflow_details(self, workflow_uid: str) -> Dict:
+        """Get detailed information about a specific workflow including steps"""
+        conn = sqlite3.connect(self.db_path)
+        
+        # Get workflow info
+        workflow_query = '''
+            SELECT * FROM workflows WHERE uid = ?
+        '''
+        workflow_df = pd.read_sql_query(workflow_query, conn, params=[workflow_uid])
+        
+        if workflow_df.empty:
+            conn.close()
+            return {'error': 'Workflow not found'}
+        
+        workflow = workflow_df.iloc[0].to_dict()
+        
+        # Get workflow steps/tasks
+        tasks_query = '''
+            SELECT * FROM tasks 
+            WHERE workflow_uid = ?
+            ORDER BY started_at ASC
+        '''
+        tasks_df = pd.read_sql_query(tasks_query, conn, params=[workflow_uid])
+        
+        # Get historical performance for this workflow name
+        historical_query = '''
+            SELECT AVG(duration_seconds) as avg_duration,
+                   STDDEV(duration_seconds) as std_duration,
+                   COUNT(*) as historical_count
+            FROM workflows 
+            WHERE name = ? 
+            AND duration_seconds IS NOT NULL 
+            AND duration_seconds > 0
+            AND uid != ?
+        '''
+        historical_df = pd.read_sql_query(historical_query, conn, params=[workflow['name'], workflow_uid])
+        
+        # Get historical task performance
+        task_historical_query = '''
+            SELECT t.task_name,
+                   AVG(t.duration_seconds) as avg_duration,
+                   STDDEV(t.duration_seconds) as std_duration,
+                   COUNT(*) as execution_count
+            FROM tasks t
+            JOIN workflows w ON t.workflow_uid = w.uid
+            WHERE w.name = ?
+            AND t.duration_seconds IS NOT NULL
+            AND t.duration_seconds > 0
+            GROUP BY t.task_name
+        '''
+        task_historical_df = pd.read_sql_query(task_historical_query, conn, params=[workflow['name']])
+        
+        conn.close()
+        
+        # Calculate performance metrics
+        historical_avg = historical_df.iloc[0]['avg_duration'] if not historical_df.empty else None
+        historical_std = historical_df.iloc[0]['std_duration'] if not historical_df.empty else None
+        
+        performance_comparison = None
+        if historical_avg and workflow['duration_seconds']:
+            deviation = workflow['duration_seconds'] - historical_avg
+            performance_comparison = {
+                'current_duration': workflow['duration_seconds'],
+                'historical_avg': historical_avg,
+                'historical_std': historical_std,
+                'deviation_seconds': deviation,
+                'deviation_percent': (deviation / historical_avg * 100) if historical_avg > 0 else 0,
+                'performance_level': 'fast' if deviation < -historical_std else 'slow' if deviation > historical_std else 'normal'
+            }
+        
+        # Add task performance comparisons
+        tasks_with_comparison = []
+        for _, task in tasks_df.iterrows():
+            task_dict = task.to_dict()
+            
+            # Find historical data for this task
+            historical_task = task_historical_df[task_historical_df['task_name'] == task['task_name']]
+            if not historical_task.empty and task['duration_seconds']:
+                hist_avg = historical_task.iloc[0]['avg_duration']
+                hist_std = historical_task.iloc[0]['std_duration']
+                if hist_avg:
+                    task_deviation = task['duration_seconds'] - hist_avg
+                    task_dict['performance_comparison'] = {
+                        'historical_avg': hist_avg,
+                        'historical_std': hist_std,
+                        'deviation_seconds': task_deviation,
+                        'deviation_percent': (task_deviation / hist_avg * 100) if hist_avg > 0 else 0,
+                        'performance_level': 'fast' if task_deviation < -hist_std else 'slow' if task_deviation > hist_std else 'normal'
+                    }
+            
+            tasks_with_comparison.append(task_dict)
+        
+        return {
+            'workflow': workflow,
+            'tasks': tasks_with_comparison,
+            'performance_comparison': performance_comparison,
+            'task_count': len(tasks_with_comparison),
+            'historical_executions': historical_df.iloc[0]['historical_count'] if not historical_df.empty else 0
+        }
+
+    def get_workflow_trends(self, workflow_name: str, days: int = 30) -> Dict:
+        """Get performance trends for a specific workflow"""
+        conn = sqlite3.connect(self.db_path)
+        
+        # Get workflow execution history
+        trend_query = '''
+            SELECT uid, name, duration_seconds, created_at, status,
+                   ROW_NUMBER() OVER (ORDER BY created_at) as execution_number
+            FROM workflows 
+            WHERE name = ?
+            AND created_at >= datetime('now', '-{} days')
+            ORDER BY created_at ASC
+        '''.format(days)
+        
+        trend_df = pd.read_sql_query(trend_query, conn, params=[workflow_name])
+        
+        # Get rolling average (last 5 executions)
+        if not trend_df.empty and len(trend_df) > 1:
+            trend_df['rolling_avg'] = trend_df['duration_seconds'].rolling(window=min(5, len(trend_df)), min_periods=1).mean()
+        
+        conn.close()
+        
+        return {
+            'workflow_name': workflow_name,
+            'executions': trend_df.fillna(0).to_dict('records'),
+            'total_executions': len(trend_df),
+            'avg_duration': trend_df['duration_seconds'].mean() if not trend_df.empty else 0,
+            'trend_direction': 'improving' if len(trend_df) > 5 and trend_df['duration_seconds'].tail(3).mean() < trend_df['duration_seconds'].head(3).mean() else 'stable'
+        }
+
 
 # Global monitor instance
 monitor = SimpleWorkflowMonitor(db_path="./data/workflow_metrics.db")
@@ -560,6 +690,16 @@ async def get_filtered_workflows(
 async def get_performance_data(days: int = 7):
     """API endpoint for performance comparison data"""
     return monitor.get_performance_data(days)
+
+@app.get("/api/workflow/{workflow_uid}")
+async def get_workflow_detail(workflow_uid: str):
+    """API endpoint for detailed workflow information"""
+    return monitor.get_workflow_details(workflow_uid)
+
+@app.get("/api/workflow/{workflow_name}/trends")
+async def get_workflow_trend(workflow_name: str, days: int = 30):
+    """API endpoint for workflow performance trends"""
+    return monitor.get_workflow_trends(workflow_name, days)
 
 
 def create_dashboard_charts(stats: Dict) -> Dict:
