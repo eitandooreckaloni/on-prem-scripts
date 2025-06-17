@@ -14,11 +14,22 @@ import boto3
 import csv
 import os
 import logging
+import warnings
 from datetime import datetime, timedelta
 from dateutil import parser as dtparser
 import humanfriendly
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Optional, Generator, Tuple, Any
+
+# Suppress urllib3 warnings for MinIO compatibility
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Suppress verbose AWS SDK and urllib3 logs for cleaner output
+logging.getLogger("urllib3.connection").setLevel(logging.ERROR)
+logging.getLogger("botocore").setLevel(logging.WARNING)
+logging.getLogger("boto3").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 class S3Utils:
@@ -413,12 +424,18 @@ class S3FilterUtils:
 
 # Convenience function for setting up logging
 def setup_logging(level: str = 'INFO', format_string: str = None) -> None:
-    """Set up logging configuration"""
+    """Set up logging configuration with clean output"""
     if not format_string:
-        format_string = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        # Cleaner format without timestamp for better readability
+        format_string = '%(levelname)s: %(message)s'
     
     logging.basicConfig(
         level=getattr(logging, level.upper()),
         format=format_string,
         datefmt='%Y-%m-%d %H:%M:%S'
-    ) 
+    )
+    
+    # Ensure AWS SDK logs stay quiet even if user sets DEBUG
+    logging.getLogger("botocore").setLevel(logging.WARNING)
+    logging.getLogger("boto3").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING) 
