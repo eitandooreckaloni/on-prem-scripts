@@ -284,6 +284,197 @@ class SimpleWorkflowMonitor:
         
         return df.to_dict('records')
 
+    def detect_anomalies(self, days: int = 7) -> Dict:
+        """Detect performance anomalies in workflows and tasks"""
+        conn = sqlite3.connect(self.db_path)
+        
+        # Get workflow duration statistics
+        workflow_query = '''
+            SELECT name, duration_seconds, 
+                   AVG(duration_seconds) OVER (PARTITION BY name) as avg_duration,
+                   created_at
+            FROM workflows 
+            WHERE duration_seconds IS NOT NULL 
+            AND duration_seconds > 0
+            AND created_at >= datetime('now', '-{} days')
+        '''.format(days)
+        
+        workflow_df = pd.read_sql_query(workflow_query, conn)
+        
+        # Get task duration statistics  
+        task_query = '''
+            SELECT w.name as workflow_name, t.task_name, t.duration_seconds,
+                   AVG(t.duration_seconds) OVER (PARTITION BY t.task_name) as avg_duration,
+                   w.created_at
+            FROM tasks t
+            JOIN workflows w ON t.workflow_uid = w.uid
+            WHERE t.duration_seconds IS NOT NULL 
+            AND t.duration_seconds > 0
+            AND w.created_at >= datetime('now', '-{} days')
+        '''.format(days)
+        
+        task_df = pd.read_sql_query(task_query, conn)
+        conn.close()
+        
+        workflow_anomalies = []
+        task_anomalies = []
+        
+        # Detect workflow anomalies (duration > 2 * average)
+        if not workflow_df.empty:
+            workflow_df['is_anomaly'] = workflow_df['duration_seconds'] > (2 * workflow_df['avg_duration'])
+            workflow_anomalies = workflow_df[workflow_df['is_anomaly']].to_dict('records')
+        
+        # Detect task anomalies
+        if not task_df.empty:
+            task_df['is_anomaly'] = task_df['duration_seconds'] > (2 * task_df['avg_duration'])
+            task_anomalies = task_df[task_df['is_anomaly']].to_dict('records')
+        
+        return {
+            'workflow_anomalies': workflow_anomalies,
+            'task_anomalies': task_anomalies,
+            'total_anomalies': len(workflow_anomalies) + len(task_anomalies)
+        }
+
+    def get_workflow_names(self) -> List[str]:
+        """Get list of unique workflow names"""
+        conn = sqlite3.connect(self.db_path)
+        
+        query = '''
+            SELECT DISTINCT name 
+            FROM workflows 
+            WHERE name IS NOT NULL 
+            ORDER BY name
+        '''
+        
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        return df['name'].tolist()
+
+    def get_task_names(self) -> List[str]:
+        """Get list of unique task names"""
+        conn = sqlite3.connect(self.db_path)
+        
+        query = '''
+            SELECT DISTINCT task_name 
+            FROM tasks 
+            WHERE task_name IS NOT NULL 
+            ORDER BY task_name
+        '''
+        
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        return df['task_name'].tolist()
+
+    def get_filtered_workflows(self, workflow_name: str = None, task_name: str = None, 
+                             days: int = 7, limit: int = 200) -> Dict:
+        """Get filtered workflow data"""
+        conn = sqlite3.connect(self.db_path)
+        
+        # Build dynamic query
+        conditions = []
+        params = []
+        
+        if workflow_name:
+            conditions.append("w.name = ?")
+            params.append(workflow_name)
+        
+        if task_name:
+            conditions.append("t.task_name = ?")
+            params.append(task_name)
+        
+        conditions.append("w.created_at >= datetime('now', '-{} days')".format(days))
+        
+        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+        
+        if task_name:
+            # Query with task filter
+            query = f'''
+                SELECT DISTINCT w.name, w.status, w.duration_seconds, w.created_at, 
+                       w.uid, COUNT(t.task_name) as task_count
+                FROM workflows w
+                JOIN tasks t ON w.uid = t.workflow_uid
+                {where_clause}
+                GROUP BY w.uid
+                ORDER BY w.created_at DESC
+                LIMIT ?
+            '''
+            params.append(limit)
+        else:
+            # Query without task filter
+            query = f'''
+                SELECT w.name, w.status, w.duration_seconds, w.created_at, 
+                       w.uid, COUNT(t.task_name) as task_count
+                FROM workflows w
+                LEFT JOIN tasks t ON w.uid = t.workflow_uid
+                {where_clause}
+                GROUP BY w.uid
+                ORDER BY w.created_at DESC
+                LIMIT ?
+            '''
+            params.append(limit)
+        
+        workflows_df = pd.read_sql_query(query, conn, params=params)
+        
+        # Get associated tasks
+        if not workflows_df.empty:
+            workflow_uids = workflows_df['uid'].tolist()
+            placeholders = ','.join(['?' for _ in workflow_uids])
+            
+            tasks_query = f'''
+                SELECT t.*, w.name as workflow_name
+                FROM tasks t
+                JOIN workflows w ON t.workflow_uid = w.uid
+                WHERE t.workflow_uid IN ({placeholders})
+                ORDER BY t.started_at DESC
+            '''
+            
+            tasks_df = pd.read_sql_query(tasks_query, conn, params=workflow_uids)
+        else:
+            tasks_df = pd.DataFrame()
+        
+        conn.close()
+        
+        return {
+            'workflows': workflows_df.fillna(0).to_dict('records'),
+            'tasks': tasks_df.fillna(0).to_dict('records'),
+            'total_workflows': len(workflows_df),
+            'total_tasks': len(tasks_df)
+        }
+
+    def get_performance_data(self, days: int = 7) -> Dict:
+        """Get performance comparison data"""
+        conn = sqlite3.connect(self.db_path)
+        
+        # Get workflow performance trends
+        performance_query = '''
+            SELECT name, 
+                   AVG(duration_seconds) as avg_duration,
+                   MIN(duration_seconds) as min_duration,
+                   MAX(duration_seconds) as max_duration,
+                   COUNT(*) as execution_count,
+                   COUNT(CASE WHEN status = 'Succeeded' THEN 1 END) as success_count,
+                   COUNT(CASE WHEN status = 'Failed' THEN 1 END) as failure_count
+            FROM workflows 
+            WHERE duration_seconds IS NOT NULL 
+            AND duration_seconds > 0
+            AND created_at >= datetime('now', '-{} days')
+            GROUP BY name
+            ORDER BY avg_duration DESC
+        '''.format(days)
+        
+        performance_df = pd.read_sql_query(performance_query, conn)
+        conn.close()
+        
+        # Calculate success rates
+        if not performance_df.empty:
+            performance_df['success_rate'] = (performance_df['success_count'] / performance_df['execution_count'] * 100).round(1)
+        
+        return {
+            'workflow_performance': performance_df.fillna(0).to_dict('records')
+        }
+
 
 # Global monitor instance
 monitor = SimpleWorkflowMonitor(db_path="./data/workflow_metrics.db")
@@ -339,6 +530,36 @@ async def collect_data(background_tasks: BackgroundTasks, namespace: str = "argo
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.get("/api/anomalies")
+async def get_anomalies(days: int = 7):
+    """API endpoint for anomaly detection"""
+    return monitor.detect_anomalies(days)
+
+@app.get("/api/workflows/names")
+async def get_workflow_names():
+    """API endpoint for workflow names"""
+    return monitor.get_workflow_names()
+
+@app.get("/api/tasks/names")
+async def get_task_names():
+    """API endpoint for task names"""
+    return monitor.get_task_names()
+
+@app.get("/api/workflows/filtered")
+async def get_filtered_workflows(
+    workflow_name: str = None,
+    task_name: str = None,
+    days: int = 7,
+    limit: int = 200
+):
+    """API endpoint for filtered workflows"""
+    return monitor.get_filtered_workflows(workflow_name, task_name, days, limit)
+
+@app.get("/api/performance")
+async def get_performance_data(days: int = 7):
+    """API endpoint for performance comparison data"""
+    return monitor.get_performance_data(days)
 
 
 def create_dashboard_charts(stats: Dict) -> Dict:
