@@ -177,6 +177,10 @@
             background: #f8f9fa;
             font-weight: 600;
             color: #495057;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
         }
 
         .workflows-table tr:hover {
@@ -659,11 +663,11 @@
         </div>
 
         <!-- Recent Workflows Summary - Minimal -->
-        <div class="workflows-section" style="background: #f8f9fa; border-radius: 6px; padding: 1rem; margin-top: 1rem; max-height: 300px; overflow-y: auto;">
-            <div class="section-header" style="background: none; padding: 0; border: none; margin-bottom: 1rem;">
+        <div class="workflows-section" style="background: #f8f9fa; border-radius: 6px; padding: 1rem; margin-top: 1rem; max-height: 400px; overflow: hidden;">
+            <div class="section-header" style="background: #f8f9fa; padding: 0.5rem 0; border: none; margin-bottom: 0.5rem; position: sticky; top: 0; z-index: 10;">
                 <h4 style="color: #495057; font-size: 1rem; margin: 0;">📋 Recent Workflows</h4>
             </div>
-            <div id="workflowsContent" style="font-size: 0.9rem;">
+            <div id="workflowsContent" style="font-size: 0.9rem; max-height: 320px; overflow-y: auto;">
                 <div class="loading">Loading workflows...</div>
             </div>
         </div>
