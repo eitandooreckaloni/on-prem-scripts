@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clean Argo Dashboard</title>
+    <title>Smart Argo Workflows Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
@@ -410,8 +410,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>🚀 Clean Argo Dashboard</h1>
-        <p>Minimal dashboard for Argo Workflows monitoring and connection testing</p>
+        <h1>🚀 Smart Argo Workflows Dashboard</h1>
+        <p>Advanced workflows and tasks analysis with intelligent filtering and performance monitoring</p>
     </div>
 
     <div class="container">
@@ -429,36 +429,18 @@
             <!-- Stats will be loaded here -->
         </div>
 
-        <!-- Duration Chart Section -->
-        <div class="chart-section">
+        <!-- Smart Workflows & Tasks Analysis - MAIN SECTION -->
+        <div class="smart-table-section" style="margin-bottom: 3rem;">
             <div class="section-header">
-                <h2>📈 Workflow Duration Timeline</h2>
-            </div>
-            <div class="chart-controls">
-                <div class="filter-group">
-                    <label>Filter by Status:</label>
-                    <div class="filter-checkboxes" id="statusFilters">
-                        <!-- Checkboxes will be populated dynamically -->
-                    </div>
-                </div>
-                <button id="refreshChart" class="btn">Refresh Chart</button>
-            </div>
-            <div class="chart-container">
-                <canvas id="durationChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Smart Table/Chart Section -->
-        <div class="smart-table-section">
-            <div class="section-header">
-                <h2>🔍 Smart Workflows & Tasks Analysis</h2>
+                <h1 style="color: #2c3e50; font-size: 2.2rem; margin-bottom: 0.5rem;">🔍 Smart Workflows & Tasks Analysis</h1>
+                <p style="color: #6c757d; margin: 0; font-size: 1.1rem;">Advanced filtering and performance analysis of workflows and individual tasks</p>
             </div>
             <div class="smart-controls">
                 <div class="control-group">
                     <label>View Type:</label>
                     <div class="view-toggle">
-                        <button id="tableViewBtn" class="active" onclick="switchView('table')">Table</button>
-                        <button id="chartViewBtn" onclick="switchView('chart')">Chart</button>
+                        <button id="tableViewBtn" class="active" onclick="switchView('table')">Table View</button>
+                        <button id="chartViewBtn" onclick="switchView('chart')">Performance Chart</button>
                     </div>
                 </div>
                 <div class="control-group">
@@ -504,10 +486,11 @@
             </div>
         </div>
 
-        <!-- Workflows Section -->
-        <div class="workflows-section">
+        <!-- Recent Workflows Summary - Compact -->
+        <div class="workflows-section" style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem; margin-top: 2rem;">
             <div class="section-header">
-                <h2>📋 Recent Workflows</h2>
+                <h3 style="color: #495057; font-size: 1.3rem; margin-bottom: 0.5rem;">📋 Recent Workflows Summary</h3>
+                <p style="color: #6c757d; margin: 0; font-size: 0.9rem;">Quick overview of recent workflow executions</p>
             </div>
             <div id="workflowsContent">
                 <div class="loading">Loading workflows...</div>
@@ -518,9 +501,6 @@
     <script>
         // Global state
         let isLoading = false;
-        let durationChart = null;
-        let chartData = [];
-        let allStatuses = new Set();
         let smartChart = null;
         let smartData = { workflows: [], tasks: [], summary: {} };
         let currentView = 'table';
@@ -531,13 +511,10 @@
         const connectionStatus = document.getElementById('connectionStatus');
         const statsGrid = document.getElementById('statsGrid');
         const workflowsContent = document.getElementById('workflowsContent');
-        const refreshChartBtn = document.getElementById('refreshChart');
-        const statusFilters = document.getElementById('statusFilters');
 
         // Event listeners
         testConnectionBtn.addEventListener('click', testConnection);
         refreshDataBtn.addEventListener('click', refreshAllData);
-        refreshChartBtn.addEventListener('click', loadChart);
 
         // Test connection function
         async function testConnection() {
@@ -678,131 +655,7 @@
             return 'status-unknown';
         }
 
-        // Load chart data
-        async function loadChart() {
-            try {
-                const response = await fetch('/api/chart-data?limit=50');
-                chartData = await response.json();
-                
-                // Extract all unique statuses
-                allStatuses.clear();
-                chartData.forEach(item => {
-                    allStatuses.add(item.status);
-                });
-                
-                createStatusFilters();
-                updateChart();
-            } catch (error) {
-                console.error('Failed to load chart data:', error);
-            }
-        }
 
-        // Create status filter checkboxes
-        function createStatusFilters() {
-            const sortedStatuses = Array.from(allStatuses).sort();
-            statusFilters.innerHTML = sortedStatuses.map(status => `
-                <div class="checkbox-item">
-                    <input type="checkbox" id="status-${status.replace(/[^a-zA-Z0-9]/g, '-')}" 
-                           value="${status}" checked onchange="updateChart()">
-                    <label for="status-${status.replace(/[^a-zA-Z0-9]/g, '-')}">${status}</label>
-                </div>
-            `).join('');
-        }
-
-        // Get selected statuses from filters
-        function getSelectedStatuses() {
-            const checkboxes = statusFilters.querySelectorAll('input[type="checkbox"]:checked');
-            return Array.from(checkboxes).map(cb => cb.value);
-        }
-
-        // Update chart based on filters
-        function updateChart() {
-            const selectedStatuses = getSelectedStatuses();
-            const filteredData = chartData.filter(item => selectedStatuses.includes(item.status));
-            
-            // Prepare data for Chart.js
-            const chartLabels = filteredData.map(item => {
-                const date = new Date(item.started_at);
-                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            });
-            
-            const chartDurations = filteredData.map(item => Math.round(item.duration));
-            
-            // Get colors based on status
-            const chartColors = filteredData.map(item => getStatusColor(item.status));
-            
-            // Create or update chart
-            const ctx = document.getElementById('durationChart').getContext('2d');
-            
-            if (durationChart) {
-                durationChart.destroy();
-            }
-            
-            durationChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        label: 'Duration (seconds)',
-                        data: chartDurations,
-                        backgroundColor: chartColors,
-                        borderColor: chartColors,
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Duration (seconds)'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Workflow Start Time'
-                            },
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Workflow Duration Over Time'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                afterLabel: function(context) {
-                                    const item = filteredData[context.dataIndex];
-                                    return [
-                                        `Status: ${item.status}`,
-                                        `Workflow: ${item.name}`,
-                                        `Duration: ${formatDuration(item.duration)}`
-                                    ];
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Get color based on status
-        function getStatusColor(status) {
-            const statusLower = status.toLowerCase();
-            if (statusLower.includes('succeeded')) return '#28a745';
-            if (statusLower.includes('failed')) return '#dc3545';
-            if (statusLower.includes('running')) return '#ffc107';
-            if (statusLower.includes('deleted')) return '#6c757d';
-            return '#17a2b8';
-        }
 
         // Load smart data
         async function loadSmartData() {
@@ -1065,7 +918,7 @@
             refreshDataBtn.disabled = true;
             refreshDataBtn.textContent = 'Refreshing...';
 
-            await Promise.all([loadStats(), loadWorkflows(), loadChart(), loadSmartData()]);
+            await Promise.all([loadStats(), loadWorkflows(), loadSmartData()]);
 
             isLoading = false;
             refreshDataBtn.disabled = false;
