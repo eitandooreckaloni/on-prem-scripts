@@ -456,8 +456,31 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+def find_available_port(start_port: int = 8001, max_attempts: int = 5) -> int:
+    """Find an available port starting from start_port, trying up to max_attempts ports"""
+    import socket
+    
+    for attempt in range(max_attempts):
+        test_port = start_port + attempt
+        try:
+            # Test if port is available
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('0.0.0.0', test_port))
+                return test_port
+        except OSError:
+            print(f"⚠️  Port {test_port} is already in use, trying next port...")
+            continue
+    
+    raise RuntimeError(f"Unable to find available port after {max_attempts} attempts (tried ports {start_port}-{start_port + max_attempts - 1})")
+
 if __name__ == "__main__":
     print("🚀 Starting Clean Argo Dashboard...")
-    print("📊 Dashboard: http://localhost:8001")
-    print("🔍 API docs: http://localhost:8001/docs")
-    uvicorn.run(app, host="0.0.0.0", port=8001) 
+    
+    try:
+        port = find_available_port(8001, 5)
+        print(f"📊 Dashboard: http://localhost:{port}")
+        print(f"🔍 API docs: http://localhost:{port}/docs")
+        uvicorn.run(app, host="0.0.0.0", port=port)
+    except RuntimeError as e:
+        print(f"❌ Failed to start dashboard: {e}")
+        exit(1) 
