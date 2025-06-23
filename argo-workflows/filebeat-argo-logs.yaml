@@ -86,14 +86,17 @@ data:
               }
 
     output.elasticsearch:
-      # Use host.docker.internal to connect to Elasticsearch on host
-      hosts: ["host.docker.internal:9200"]
+      # Direct IP connection to Elasticsearch container
+      hosts: ["172.20.0.2:9200"]
       username: "elastic"
       password: "password"
       index: "argo-workflows-%{+yyyy.MM.dd}"
+      # Disable ILM to avoid data stream issues
+      ilm.enabled: false
 
     setup.template.name: "argo-workflows"
     setup.template.pattern: "argo-workflows-*"
+    setup.template.enabled: true
     setup.template.settings:
       index.number_of_shards: 1
       index.number_of_replicas: 0
