@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Workflows & Tasks Analysis</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -763,7 +764,7 @@
             
             if (currentView === 'table') {
                 updateSmartTable(filteredData);
-            } else {
+            } else if (currentView === 'chart') {
                 updateSmartChart(filteredData);
             }
         }
@@ -852,7 +853,7 @@
             tableView.innerHTML = tableHTML;
         }
 
-        // Update smart chart
+        // Update smart chart - now shows individual executions over time
         function updateSmartChart(filteredData) {
             const ctx = document.getElementById('smartChart').getContext('2d');
             
@@ -860,92 +861,143 @@
                 smartChart.destroy();
             }
 
-            // Group by task type for chart
-            const taskGroups = {};
-            filteredData.forEach(item => {
-                if (item.duration_seconds != null) {
-                    const groupKey = item.task_type || item.workflow_type || 'Other';
-                    if (!taskGroups[groupKey]) {
-                        taskGroups[groupKey] = [];
+            // Filter out items without duration or start time
+            const validData = filteredData.filter(item => 
+                item.started_at && item.duration_seconds !== null && item.duration_seconds !== undefined
+            );
+
+            if (validData.length === 0) {
+                const emptyChart = new Chart(ctx, {
+                    type: 'scatter',
+                    data: { datasets: [] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Performance Chart - No Data Available'
+                            }
+                        }
                     }
-                    taskGroups[groupKey].push(item.duration_seconds);
+                });
+                smartChart = emptyChart;
+                return;
+            }
+
+            // Group data by type for different colors
+            const groups = {};
+            validData.forEach(item => {
+                const groupKey = item.task_type || item.workflow_type || 'Other';
+                if (!groups[groupKey]) {
+                    groups[groupKey] = [];
                 }
+                
+                groups[groupKey].push({
+                    x: new Date(item.started_at),
+                    y: item.duration_seconds,
+                    name: item.name,
+                    status: item.status,
+                    workflow_type: item.workflow_type,
+                    task_type: item.task_type,
+                    type: item.type
+                });
             });
 
-            // Calculate averages for each group
-            const labels = Object.keys(taskGroups);
-            const averages = labels.map(label => {
-                const durations = taskGroups[label];
-                return durations.reduce((sum, d) => sum + d, 0) / durations.length;
+            // Sort each group by time
+            Object.keys(groups).forEach(key => {
+                groups[key].sort((a, b) => a.x - b.x);
             });
-            const counts = labels.map(label => taskGroups[label].length);
+
+            // Create datasets with different colors for each group
+            const colors = [
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(255, 205, 86, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 159, 64, 0.8)',
+                'rgba(199, 199, 199, 0.8)',
+                'rgba(83, 102, 255, 0.8)',
+                'rgba(255, 99, 255, 0.8)',
+                'rgba(99, 255, 132, 0.8)'
+            ];
+
+            const datasets = [];
+            let colorIndex = 0;
+
+            Object.keys(groups).forEach(groupKey => {
+                const color = colors[colorIndex % colors.length];
+                colorIndex++;
+
+                datasets.push({
+                    label: groupKey,
+                    data: groups[groupKey],
+                    backgroundColor: color,
+                    borderColor: color.replace('0.8', '1'),
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                });
+            });
 
             smartChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Average Duration (seconds)',
-                        data: averages,
-                        backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1,
-                        yAxisID: 'y'
-                    }, {
-                        label: 'Count',
-                        data: counts,
-                        type: 'line',
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                        yAxisID: 'y1'
-                    }]
-                },
+                type: 'scatter',
+                data: { datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: {
+                    interaction: {
+                        intersect: false,
+                        mode: 'point'
+                    },
+                                         scales: {
+                         x: {
+                             type: 'time',
+                             title: {
+                                 display: true,
+                                 text: 'Start Time'
+                             }
+                         },
                         y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
                             title: {
                                 display: true,
-                                text: 'Average Duration (seconds)'
-                            }
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Count'
+                                text: 'Duration (seconds)'
                             },
-                            grid: {
-                                drawOnChartArea: false,
-                            }
+                            beginAtZero: true
                         }
                     },
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Task/Workflow Performance Analysis'
+                            text: 'Performance Chart - Individual Executions Over Time'
                         },
                         tooltip: {
                             callbacks: {
-                                afterLabel: function(context) {
-                                    const label = context.label;
+                                title: function(context) {
+                                    return new Date(context[0].parsed.x).toLocaleString();
+                                },
+                                label: function(context) {
+                                    const point = context.raw;
                                     return [
-                                        `Count: ${counts[context.dataIndex]}`,
-                                        `Avg Duration: ${formatDuration(averages[context.dataIndex])}`
-                                    ];
+                                        `${context.dataset.label}: ${formatDuration(point.y)}`,
+                                        `Name: ${point.name}`,
+                                        `Status: ${point.status}`,
+                                        `Type: ${point.type}`,
+                                        point.workflow_type ? `Workflow: ${point.workflow_type}` : '',
+                                        point.task_type ? `Task: ${point.task_type}` : ''
+                                    ].filter(Boolean);
                                 }
                             }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
                         }
                     }
                 }
             });
-        }
+                }
 
         // Refresh all data
         async function refreshAllData() {
