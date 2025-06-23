@@ -61,6 +61,25 @@ data:
             source: >
               function process(event) {
                 var message = event.Get("message");
+                var podName = event.Get("kubernetes.pod.name");
+                
+                // Extract workflow name from pod name
+                if (podName && typeof podName === "string") {
+                  // Pod names follow pattern: workflow-name-task-name-hash
+                  // Extract everything before the last two hyphens (task-name-hash)
+                  var workflowMatch = podName.match(/^(ml-pipeline-[^-]+-\d+)/);
+                  if (workflowMatch) {
+                    event.Put("workflow_name", workflowMatch[1]);
+                  }
+                  
+                  // Extract task name (part between workflow name and hash)
+                  var taskMatch = podName.match(/ml-pipeline-[^-]+-\d+-([^-]+(?:-[^-]+)*)-[a-f0-9]+$/);
+                  if (taskMatch) {
+                    event.Put("task_name", taskMatch[1].replace(/-/g, " "));
+                  }
+                }
+                
+                // Parse log message content
                 if (message && typeof message === "string") {
                   // Parse timing records
                   if (message.includes("CRON TIMING RECORD")) {
@@ -69,10 +88,6 @@ data:
                   // Parse task completion logs
                   else if (message.includes("✅")) {
                     event.Put("log_type", "completion");
-                    var taskMatch = message.match(/(\w+)\s+complete/);
-                    if (taskMatch) {
-                      event.Put("task_name", taskMatch[1]);
-                    }
                   }
                   // Parse error logs
                   else if (message.includes("❌") || message.includes("ERROR")) {
@@ -81,6 +96,18 @@ data:
                   // Parse progress logs
                   else if (message.includes("🔍") || message.includes("📅") || message.includes("🔧") || message.includes("🎨") || message.includes("🤖") || message.includes("📊") || message.includes("💾")) {
                     event.Put("log_type", "progress");
+                  }
+                  
+                  // Extract step information
+                  var stepMatch = message.match(/Step (\d+):/);
+                  if (stepMatch) {
+                    event.Put("step_number", parseInt(stepMatch[1]));
+                  }
+                  
+                  // Extract duration information
+                  var durationMatch = message.match(/(\d+\.?\d*)\s*(?:s|seconds)/);
+                  if (durationMatch) {
+                    event.Put("duration_seconds", parseFloat(durationMatch[1]));
                   }
                 }
               }
@@ -131,10 +158,16 @@ data:
             type: keyword
           pipeline:
             type: keyword
+          workflow_name:
+            type: keyword
           log_type:
             type: keyword
           task_name:
             type: keyword
+          step_number:
+            type: integer
+          duration_seconds:
+            type: float
           message:
             type: text
             analyzer: standard
