@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""
+Clean Argo Workflows Dashboard
+
+A minimal dashboard focused on testing Argo workflows connection
+and displaying basic workflow metrics.
+"""
+
+import json
+import subprocess
+import sqlite3
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional
+import os
+
+from fastapi import FastAPI, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, JSONResponse
+import uvicorn
+
+app = FastAPI(title="Clean Argo Dashboard")
+templates = Jinja2Templates(directory="templates")
+
+class ArgoConnection:
+    """Simple Argo workflows connection handler"""
+    
+    def __init__(self, namespace: str = "argo"):
+        self.namespace = namespace
+        self.db_path = "argo_clean.db"
+        self.init_database()
+    
+    def init_database(self):
+        """Initialize simple SQLite database"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS workflows (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                uid TEXT UNIQUE NOT NULL,
+                namespace TEXT,
+                status TEXT,
+                created_at TIMESTAMP,
+                started_at TIMESTAMP,
+                finished_at TIMESTAMP,
+                duration_seconds REAL,
+                collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+    
+    def test_connection(self) -> Dict:
+        """Test connection to Argo workflows"""
+        try:
+            result = subprocess.run([
+                'argo', 'list', '-n', self.namespace
+            ], capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                return {
+                    "status": "success",
+                    "message": "Successfully connected to Argo workflows",
+                    "namespace": self.namespace,
+                    "output": result.stdout[:500]  # First 500 chars
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Failed to connect: {result.stderr}",
+                    "namespace": self.namespace
+                }
+        except subprocess.TimeoutExpired:
+            return {
+                "status": "error",
+                "message": "Connection timeout after 10 seconds",
+                "namespace": self.namespace
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Connection error: {str(e)}",
+                "namespace": self.namespace
+            }
+    
+    def get_workflows(self, limit: int = 10) -> List[Dict]:
+        """Get recent workflows from Argo"""
+        try:
+            result = subprocess.run([
+                'argo', 'list', '-n', self.namespace, '-o', 'json'
+            ], capture_output=True, text=True, timeout=30)
+            
+            if result.returncode != 0:
+                return []
+            
+            workflows_data = json.loads(result.stdout)
+            workflows = []
+            
+            if workflows_data and 'items' in workflows_data:
+                # Sort by creation time (newest first) and limit results
+                items = workflows_data['items']
+                items.sort(key=lambda x: x.get('metadata', {}).get('creationTimestamp', ''), reverse=True)
+                items = items[:limit]  # Apply manual limit
+                
+                for wf in items:
+                    metadata = wf.get('metadata', {})
+                    status = wf.get('status', {})
+                    
+                    # Parse timestamps
+                    created_at = self._parse_timestamp(metadata.get('creationTimestamp'))
+                    started_at = self._parse_timestamp(status.get('startedAt'))
+                    finished_at = self._parse_timestamp(status.get('finishedAt'))
+                    
+                    # Calculate duration
+                    duration = None
+                    if started_at and finished_at:
+                        duration = (finished_at - started_at).total_seconds()
+                    
+                    workflows.append({
+                        'name': metadata.get('name', 'Unknown'),
+                        'uid': metadata.get('uid', ''),
+                        'status': status.get('phase', 'Unknown'),
+                        'created_at': created_at.isoformat() if created_at else None,
+                        'started_at': started_at.isoformat() if started_at else None,
+                        'finished_at': finished_at.isoformat() if finished_at else None,
+                        'duration_seconds': duration,
+                        'namespace': self.namespace
+                    })
+            
+            return workflows
+            
+        except Exception as e:
+            print(f"Error getting workflows: {e}")
+            return []
+    
+    def _parse_timestamp(self, timestamp_str: Optional[str]) -> Optional[datetime]:
+        """Parse ISO timestamp string to datetime"""
+        if not timestamp_str:
+            return None
+        try:
+            # Handle different timestamp formats
+            if timestamp_str.endswith('Z'):
+                return datetime.fromisoformat(timestamp_str[:-1] + '+00:00')
+            else:
+                return datetime.fromisoformat(timestamp_str)
+        except:
+            return None
+    
+    def get_stats(self) -> Dict:
+        """Get basic workflow statistics"""
+        workflows = self.get_workflows(50)  # Get more for stats
+        
+        if not workflows:
+            return {
+                "total": 0,
+                "succeeded": 0,
+                "failed": 0,
+                "running": 0,
+                "avg_duration": 0
+            }
+        
+        total = len(workflows)
+        succeeded = sum(1 for wf in workflows if wf['status'] == 'Succeeded')
+        failed = sum(1 for wf in workflows if wf['status'] == 'Failed')
+        running = sum(1 for wf in workflows if wf['status'] == 'Running')
+        
+        # Calculate average duration for completed workflows
+        completed_durations = [
+            wf['duration_seconds'] for wf in workflows 
+            if wf['duration_seconds'] is not None
+        ]
+        avg_duration = sum(completed_durations) / len(completed_durations) if completed_durations else 0
+        
+        return {
+            "total": total,
+            "succeeded": succeeded,
+            "failed": failed,
+            "running": running,
+            "avg_duration": round(avg_duration, 2)
+        }
+
+# Initialize Argo connection
+argo_conn = ArgoConnection()
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    """Main dashboard page"""
+    return templates.TemplateResponse("argo_dashboard.html", {"request": request})
+
+@app.get("/api/test-connection")
+async def test_connection():
+    """Test Argo connection"""
+    return argo_conn.test_connection()
+
+@app.get("/api/workflows")
+async def get_workflows(limit: int = 10):
+    """Get workflows from Argo"""
+    return argo_conn.get_workflows(limit)
+
+@app.get("/api/stats")
+async def get_stats():
+    """Get workflow statistics"""
+    return argo_conn.get_stats()
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+if __name__ == "__main__":
+    print("🚀 Starting Clean Argo Dashboard...")
+    print("📊 Dashboard: http://localhost:8001")
+    print("🔍 API docs: http://localhost:8001/docs")
+    uvicorn.run(app, host="0.0.0.0", port=8001) 
