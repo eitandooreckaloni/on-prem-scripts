@@ -1,0 +1,314 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  namespace: argo
+  labels:
+    k8s-app: filebeat
+data:
+  filebeat.yml: |-
+    filebeat.inputs:
+    - type: container
+      paths:
+        - /var/log/containers/*argo*.log
+        - /var/log/containers/*workflow*.log
+        - /var/log/containers/*ml-pipeline*.log
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+        - decode_json_fields:
+            fields: ["message"]
+            target: ""
+            overwrite_keys: true
+        - add_fields:
+            target: argo
+            fields:
+              cluster: "kind-argo-dev"
+              environment: "on-prem"
+              log_source: "argo-workflows"
+        - timestamp:
+            field: time
+            layouts:
+              - '2006-01-02T15:04:05.000Z'
+              - '2006-01-02T15:04:05Z'
+            test:
+              - '2023-06-15T14:30:45.123Z'
+
+    # Specific input for Argo workflow logs with enhanced parsing
+    - type: container
+      paths:
+        - /var/log/containers/*ml-pipeline-cron*.log
+      fields:
+        workflow_type: "cron"
+        pipeline: "ml-pipeline"
+      fields_under_root: true
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+        - decode_json_fields:
+            fields: ["message"]
+            target: ""
+            overwrite_keys: true
+        - script:
+            lang: javascript
+            id: parse_workflow_logs
+            source: >
+              function process(event) {
+                var message = event.Get("message");
+                if (message && typeof message === "string") {
+                  // Parse timing records
+                  if (message.includes("CRON TIMING RECORD")) {
+                    event.Put("log_type", "timing");
+                  }
+                  // Parse task completion logs
+                  else if (message.includes("✅")) {
+                    event.Put("log_type", "completion");
+                    var taskMatch = message.match(/(\w+)\s+complete/);
+                    if (taskMatch) {
+                      event.Put("task_name", taskMatch[1]);
+                    }
+                  }
+                  // Parse error logs
+                  else if (message.includes("❌") || message.includes("ERROR")) {
+                    event.Put("log_type", "error");
+                  }
+                  // Parse progress logs
+                  else if (message.includes("🔍") || message.includes("📅") || message.includes("🔧") || message.includes("🎨") || message.includes("🤖") || message.includes("📊") || message.includes("💾")) {
+                    event.Put("log_type", "progress");
+                  }
+                }
+              }
+
+    output.elasticsearch:
+      # Use host.docker.internal to connect to Elasticsearch on host
+      hosts: ["host.docker.internal:9200"]
+      username: "elastic"
+      password: "password"
+      index: "argo-workflows-%{+yyyy.MM.dd}"
+
+    setup.template.name: "argo-workflows"
+    setup.template.pattern: "argo-workflows-*"
+    setup.template.settings:
+      index.number_of_shards: 1
+      index.number_of_replicas: 0
+      index.refresh_interval: "5s"
+    setup.template.mappings:
+        properties:
+          "@timestamp":
+            type: date
+          kubernetes:
+            properties:
+              namespace:
+                type: keyword
+              pod:
+                properties:
+                  name:
+                    type: keyword
+                  uid:
+                    type: keyword
+              container:
+                properties:
+                  name:
+                    type: keyword
+          argo:
+            properties:
+              cluster:
+                type: keyword
+              environment:
+                type: keyword
+              log_source:
+                type: keyword
+          workflow_type:
+            type: keyword
+          pipeline:
+            type: keyword
+          log_type:
+            type: keyword
+          task_name:
+            type: keyword
+          message:
+            type: text
+            analyzer: standard
+
+    processors:
+      - add_host_metadata:
+          when.not.contains.tags: forwarded
+      - add_docker_metadata: ~
+      - add_kubernetes_metadata: ~
+
+    logging.level: info
+    logging.to_files: true
+    logging.files:
+      path: /var/log/filebeat
+      name: filebeat
+      keepfiles: 7
+      permissions: 0644
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: filebeat
+  namespace: argo
+  labels:
+    k8s-app: filebeat
+spec:
+  selector:
+    matchLabels:
+      k8s-app: filebeat
+  template:
+    metadata:
+      labels:
+        k8s-app: filebeat
+    spec:
+      serviceAccountName: filebeat
+      terminationGracePeriodSeconds: 30
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:8.17.0
+        args: [ "-c", "/etc/filebeat.yml", "-e" ]
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        securityContext:
+          runAsUser: 0
+          # If using Red Hat OpenShift uncomment this:
+          #privileged: true
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/filebeat.yml
+          readOnly: true
+          subPath: filebeat.yml
+        - name: data
+          mountPath: /usr/share/filebeat/data
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          defaultMode: 0o640
+          name: filebeat-config
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: data
+        hostPath:
+          path: /var/lib/filebeat-data
+          type: DirectoryOrCreate
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: filebeat
+rules:
+- apiGroups: [ "" ] # "" indicates the core API group
+  resources:
+  - namespaces
+  - pods
+  - nodes
+  verbs:
+  - get
+  - watch
+  - list
+- apiGroups: [ "apps" ]
+  resources:
+  - replicasets
+  verbs: [ "get", "list", "watch" ]
+- apiGroups: [ "batch" ]
+  resources:
+  - jobs
+  verbs: [ "get", "list", "watch" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: filebeat
+  namespace: argo
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs: [ "get", "create", "update" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: filebeat-kubeadm-config
+  namespace: argo
+rules:
+- apiGroups: [ "" ]
+  resources:
+  - configmaps
+  resourceNames:
+  - kubeadm-config
+  verbs: [ "get" ]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: filebeat
+  namespace: argo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: filebeat
+subjects:
+- kind: ServiceAccount
+  name: filebeat
+  namespace: argo
+roleRef:
+  kind: ClusterRole
+  name: filebeat
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: filebeat
+  namespace: argo
+subjects:
+- kind: ServiceAccount
+  name: filebeat
+  namespace: argo
+roleRef:
+  kind: Role
+  name: filebeat
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: filebeat-kubeadm-config
+  namespace: argo
+subjects:
+- kind: ServiceAccount
+  name: filebeat
+  namespace: argo
+roleRef:
+  kind: Role
+  name: filebeat-kubeadm-config
+  apiGroup: rbac.authorization.k8s.io
