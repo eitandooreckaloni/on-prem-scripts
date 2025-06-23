@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Argo Workflows Dashboard</title>
+    <title>Smart Workflows & Tasks Analysis</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
@@ -420,13 +420,13 @@
 </head>
 <body>
     <div class="header">
-        <h1>🚀 Smart Argo Workflows Dashboard</h1>
-        <p>Advanced workflows and tasks analysis with intelligent filtering and performance monitoring</p>
+        <h1>🔍 Smart Workflows & Tasks Analysis</h1>
+        <p>Advanced filtering and performance analysis of workflows and individual tasks</p>
     </div>
 
     <div class="container">
         <!-- Compact Header Section -->
-        <div class="header-controls" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; margin-bottom: 2rem; background: white; border-radius: 10px; padding: 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <div class="header-controls" style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem; margin-bottom: 2rem; background: white; border-radius: 10px; padding: 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); align-items: start;">
             <!-- Connection Test - Compact -->
             <div class="connection-test-compact">
                 <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: #495057;">🔗 Connection</h3>
@@ -437,18 +437,17 @@
                 <div id="connectionStatus" class="connection-status" style="font-size: 0.85rem;"></div>
             </div>
             
-            <!-- Statistics - Compact Grid -->
-            <div class="stats-grid-compact" id="statsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem;">
-                <!-- Stats will be loaded here -->
+            <!-- Filtered Results Statistics -->
+            <div class="filtered-stats-section">
+                <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; color: #495057;">📊 Filtered Results</h3>
+                <div class="stats-grid-compact" id="filteredStatsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem;">
+                    <!-- Filtered stats will be loaded here -->
+                </div>
             </div>
         </div>
 
-        <!-- Smart Workflows & Tasks Analysis - MAIN SECTION -->
+        <!-- Main Analysis Section -->
         <div class="smart-table-section" style="margin-bottom: 2rem; min-height: 70vh;">
-            <div class="section-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-bottom: none;">
-                <h1 style="color: white; font-size: 2.4rem; margin-bottom: 0.5rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🔍 Smart Workflows & Tasks Analysis</h1>
-                <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 1.2rem;">Advanced filtering and performance analysis of workflows and individual tasks</p>
-            </div>
             <div class="smart-controls">
                 <div class="control-group">
                     <label>View Type:</label>
@@ -522,7 +521,7 @@
         const testConnectionBtn = document.getElementById('testConnection');
         const refreshDataBtn = document.getElementById('refreshData');
         const connectionStatus = document.getElementById('connectionStatus');
-        const statsGrid = document.getElementById('statsGrid');
+        const filteredStatsGrid = document.getElementById('filteredStatsGrid');
         const workflowsContent = document.getElementById('workflowsContent');
 
         // Event listeners
@@ -564,41 +563,63 @@
             connectionStatus.style.display = 'block';
         }
 
-        // Load statistics
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/stats');
-                const stats = await response.json();
-
-                statsGrid.innerHTML = `
-                    <div class="stat-card">
-                        <div class="stat-number stat-info">${stats.total}</div>
-                        <div class="stat-label">Total Workflows</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number stat-success">${stats.succeeded}</div>
-                        <div class="stat-label">Succeeded</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number stat-danger">${stats.failed}</div>
-                        <div class="stat-label">Failed</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number stat-warning">${stats.running}</div>
-                        <div class="stat-label">Running</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number stat-info">${stats.deleted}</div>
-                        <div class="stat-label">Deleted</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number stat-info">${stats.avg_duration}s</div>
-                        <div class="stat-label">Avg Duration</div>
-                    </div>
-                `;
-            } catch (error) {
-                statsGrid.innerHTML = '<div class="error-message">Failed to load statistics</div>';
+        // Update filtered statistics based on current filter selection
+        function updateFilteredStats(filteredData) {
+            if (!filteredData || filteredData.length === 0) {
+                filteredStatsGrid.innerHTML = '<div class="loading">No data to display</div>';
+                return;
             }
+
+            // Calculate stats from filtered data
+            const total = filteredData.length;
+            const workflows = filteredData.filter(item => item.type === 'workflow');
+            const tasks = filteredData.filter(item => item.type === 'task');
+            
+            const succeeded = filteredData.filter(item => item.status === 'Succeeded').length;
+            const failed = filteredData.filter(item => item.status === 'Failed').length;
+            const running = filteredData.filter(item => item.status === 'Running').length;
+            const deleted = filteredData.filter(item => item.is_deleted).length;
+            
+            // Calculate average duration for completed items
+            const completedItems = filteredData.filter(item => item.duration_seconds !== null && item.duration_seconds !== undefined);
+            const avgDuration = completedItems.length > 0 
+                ? (completedItems.reduce((sum, item) => sum + item.duration_seconds, 0) / completedItems.length).toFixed(1)
+                : 0;
+
+            filteredStatsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number stat-info">${total}</div>
+                    <div class="stat-label">Total Items</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-info">${workflows.length}</div>
+                    <div class="stat-label">Workflows</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-info">${tasks.length}</div>
+                    <div class="stat-label">Tasks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-success">${succeeded}</div>
+                    <div class="stat-label">Succeeded</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-danger">${failed}</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-warning">${running}</div>
+                    <div class="stat-label">Running</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-info">${deleted}</div>
+                    <div class="stat-label">Deleted</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-info">${avgDuration}s</div>
+                    <div class="stat-label">Avg Duration</div>
+                </div>
+            `;
         }
 
         // Load workflows
@@ -736,6 +757,9 @@
         // Update smart view based on filters
         function updateSmartView() {
             const filteredData = applySmartFilters();
+            
+            // Update the filtered stats
+            updateFilteredStats(filteredData);
             
             if (currentView === 'table') {
                 updateSmartTable(filteredData);
@@ -931,7 +955,7 @@
             refreshDataBtn.disabled = true;
             refreshDataBtn.textContent = 'Refreshing...';
 
-            await Promise.all([loadStats(), loadWorkflows(), loadSmartData()]);
+            await Promise.all([loadWorkflows(), loadSmartData()]);
 
             isLoading = false;
             refreshDataBtn.disabled = false;
