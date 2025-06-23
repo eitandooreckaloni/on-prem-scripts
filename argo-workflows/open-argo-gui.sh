@@ -5,10 +5,14 @@
 
 set -e
 
+# Source centralized versions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../versions.sh"
+
 # Configuration
-NAMESPACE="argo"
-PORT="2746"
-URL="https://localhost:${PORT}"
+NAMESPACE="${ARGO_WORKFLOWS_NAMESPACE}"
+PORT="${ARGO_WORKFLOWS_PORT}"
+URL="http://localhost:${PORT}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -90,7 +94,7 @@ PORT_FORWARD_PID=$!
 sleep 3
 
 # Check if port forwarding is working
-if ! curl -k -s ${URL} > /dev/null 2>&1; then
+if ! curl -s ${URL} > /dev/null 2>&1; then
     echo -e "${RED}❌ Port forwarding failed to establish${NC}"
     exit 1
 fi

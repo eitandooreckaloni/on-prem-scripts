@@ -5,9 +5,13 @@
 
 set -e
 
+# Source centralized versions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../versions.sh"
+
 # Configuration
-NAMESPACE="argo"
-ARGO_VERSION="v3.4.4"
+NAMESPACE="${ARGO_WORKFLOWS_NAMESPACE}"
+ARGO_VERSION="v${ARGO_WORKFLOWS_VERSION}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -54,7 +58,7 @@ echo -e "${GREEN}✅ Namespace '${NAMESPACE}' ready${NC}"
 
 # Install Argo Workflows
 echo -e "${BLUE}⬇️  Installing Argo Workflows ${ARGO_VERSION}...${NC}"
-kubectl apply -n ${NAMESPACE} -f "https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/install.yaml"
+kubectl apply -n ${NAMESPACE} -f "${ARGO_WORKFLOWS_INSTALL_URL}"
 
 # Wait for installation to complete
 echo -e "${BLUE}⏳ Waiting for Argo server to be ready (this may take a few minutes)...${NC}"
