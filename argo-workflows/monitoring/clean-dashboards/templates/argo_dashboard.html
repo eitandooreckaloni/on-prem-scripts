@@ -312,7 +312,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
-            align-items: center;
+            align-items: start;
         }
 
         .control-group {
@@ -332,6 +332,103 @@
             border: 1px solid #ced4da;
             border-radius: 4px;
             font-size: 0.9rem;
+        }
+
+        .multi-select-container {
+            position: relative;
+        }
+
+        .multi-select-header {
+            padding: 0.5rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 38px;
+        }
+
+        .multi-select-header:hover {
+            border-color: #007bff;
+        }
+
+        .multi-select-header.active {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        .multi-select-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ced4da;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .multi-select-dropdown.show {
+            display: block;
+        }
+
+        .multi-select-option {
+            padding: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .multi-select-option:hover {
+            background: #f8f9fa;
+        }
+
+        .multi-select-option input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .multi-select-actions {
+            padding: 0.5rem;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .multi-select-actions button {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #dee2e6;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        .multi-select-actions button:hover {
+            background: #f8f9fa;
+        }
+
+        .selected-count {
+            color: #007bff;
+            font-weight: 600;
+        }
+
+        .filter-indicator {
+            background: #007bff;
+            color: white;
+            border-radius: 10px;
+            padding: 0.1rem 0.4rem;
+            font-size: 0.7rem;
+            font-weight: 600;
         }
 
         .view-toggle {
@@ -468,25 +565,72 @@
                 </div>
                 <div class="control-group">
                     <label>Workflow Type:</label>
-                    <select id="workflowTypeFilter" onchange="updateSmartView()">
-                        <option value="all">All Types</option>
-                    </select>
+                    <div class="multi-select-container">
+                        <div class="multi-select-header" onclick="toggleMultiSelect('workflowType')">
+                            <span id="workflowTypeDisplay">All Types</span>
+                            <span>▼</span>
+                        </div>
+                        <div id="workflowTypeDropdown" class="multi-select-dropdown">
+                            <div class="multi-select-actions">
+                                <button onclick="selectAllFilter('workflowType')">Select All</button>
+                                <button onclick="clearAllFilter('workflowType')">Clear All</button>
+                            </div>
+                            <div id="workflowTypeOptions">
+                                <!-- Options will be populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="control-group">
                     <label>Task Type:</label>
-                    <select id="taskTypeFilter" onchange="updateSmartView()">
-                        <option value="all">All Tasks</option>
-                    </select>
+                    <div class="multi-select-container">
+                        <div class="multi-select-header" onclick="toggleMultiSelect('taskType')">
+                            <span id="taskTypeDisplay">All Tasks</span>
+                            <span>▼</span>
+                        </div>
+                        <div id="taskTypeDropdown" class="multi-select-dropdown">
+                            <div class="multi-select-actions">
+                                <button onclick="selectAllFilter('taskType')">Select All</button>
+                                <button onclick="clearAllFilter('taskType')">Clear All</button>
+                            </div>
+                            <div id="taskTypeOptions">
+                                <!-- Options will be populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="control-group">
                     <label>Status:</label>
-                    <select id="statusFilter" onchange="updateSmartView()">
-                        <option value="all">All Statuses</option>
-                        <option value="Succeeded">Succeeded</option>
-                        <option value="Failed">Failed</option>
-                        <option value="Running">Running</option>
-                        <option value="deleted">Deleted</option>
-                    </select>
+                    <div class="multi-select-container">
+                        <div class="multi-select-header" onclick="toggleMultiSelect('status')">
+                            <span id="statusDisplay">All Statuses</span>
+                            <span>▼</span>
+                        </div>
+                        <div id="statusDropdown" class="multi-select-dropdown">
+                            <div class="multi-select-actions">
+                                <button onclick="selectAllFilter('status')">Select All</button>
+                                <button onclick="clearAllFilter('status')">Clear All</button>
+                            </div>
+                            <div id="statusOptions">
+                                <div class="multi-select-option">
+                                    <input type="checkbox" id="status_Succeeded" value="Succeeded" onchange="updateMultiSelectFilter('status')">
+                                    <label for="status_Succeeded">Succeeded</label>
+                                </div>
+                                <div class="multi-select-option">
+                                    <input type="checkbox" id="status_Failed" value="Failed" onchange="updateMultiSelectFilter('status')">
+                                    <label for="status_Failed">Failed</label>
+                                </div>
+                                <div class="multi-select-option">
+                                    <input type="checkbox" id="status_Running" value="Running" onchange="updateMultiSelectFilter('status')">
+                                    <label for="status_Running">Running</label>
+                                </div>
+                                <div class="multi-select-option">
+                                    <input type="checkbox" id="status_deleted" value="deleted" onchange="updateMultiSelectFilter('status')">
+                                    <label for="status_deleted">Deleted</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="control-group">
                     <label>Search:</label>
@@ -531,6 +675,11 @@
         let smartChart = null;
         let smartData = { workflows: [], tasks: [], summary: {} };
         let currentView = 'table';
+        let multiSelectFilters = {
+            workflowType: [],
+            taskType: [],
+            status: []
+        };
 
         // DOM elements
         const testConnectionBtn = document.getElementById('testConnection');
@@ -721,36 +870,110 @@
 
         // Populate filter dropdowns
         function populateFilterDropdowns() {
-            // Workflow types
-            const workflowTypeFilter = document.getElementById('workflowTypeFilter');
-            const currentWorkflowType = workflowTypeFilter.value;
-            workflowTypeFilter.innerHTML = '<option value="all">All Types</option>';
+            // Populate workflow types
+            const workflowTypeOptions = document.getElementById('workflowTypeOptions');
+            workflowTypeOptions.innerHTML = '';
             
             if (smartData.summary.workflow_types) {
                 smartData.summary.workflow_types.forEach(type => {
-                    const option = document.createElement('option');
-                    option.value = type;
-                    option.textContent = type;
-                    workflowTypeFilter.appendChild(option);
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'multi-select-option';
+                    optionDiv.innerHTML = `
+                        <input type="checkbox" id="workflowType_${type}" value="${type}" onchange="updateMultiSelectFilter('workflowType')">
+                        <label for="workflowType_${type}">${type}</label>
+                    `;
+                    workflowTypeOptions.appendChild(optionDiv);
                 });
-                workflowTypeFilter.value = currentWorkflowType;
             }
 
-            // Task types
-            const taskTypeFilter = document.getElementById('taskTypeFilter');
-            const currentTaskType = taskTypeFilter.value;
-            taskTypeFilter.innerHTML = '<option value="all">All Tasks</option>';
+            // Populate task types
+            const taskTypeOptions = document.getElementById('taskTypeOptions');
+            taskTypeOptions.innerHTML = '';
             
             if (smartData.summary.task_types) {
                 smartData.summary.task_types.forEach(type => {
-                    const option = document.createElement('option');
-                    option.value = type;
-                    option.textContent = type;
-                    taskTypeFilter.appendChild(option);
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'multi-select-option';
+                    optionDiv.innerHTML = `
+                        <input type="checkbox" id="taskType_${type}" value="${type}" onchange="updateMultiSelectFilter('taskType')">
+                        <label for="taskType_${type}">${type}</label>
+                    `;
+                    taskTypeOptions.appendChild(optionDiv);
                 });
-                taskTypeFilter.value = currentTaskType;
+            }
+
+            // Update displays
+            updateMultiSelectDisplay('workflowType');
+            updateMultiSelectDisplay('taskType');
+            updateMultiSelectDisplay('status');
+        }
+
+        // Multi-select functions
+        function toggleMultiSelect(filterType) {
+            const dropdown = document.getElementById(filterType + 'Dropdown');
+            const header = dropdown.previousElementSibling;
+            
+            // Close other dropdowns
+            document.querySelectorAll('.multi-select-dropdown').forEach(dd => {
+                if (dd !== dropdown) {
+                    dd.classList.remove('show');
+                    dd.previousElementSibling.classList.remove('active');
+                }
+            });
+            
+            // Toggle current dropdown
+            dropdown.classList.toggle('show');
+            header.classList.toggle('active');
+        }
+
+        function updateMultiSelectFilter(filterType) {
+            const checkboxes = document.querySelectorAll(`#${filterType}Options input[type="checkbox"]`);
+            multiSelectFilters[filterType] = Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value);
+            
+            updateMultiSelectDisplay(filterType);
+            updateSmartView();
+        }
+
+        function updateMultiSelectDisplay(filterType) {
+            const display = document.getElementById(filterType + 'Display');
+            const selected = multiSelectFilters[filterType];
+            
+            if (selected.length === 0) {
+                let defaultText = 'All';
+                if (filterType === 'workflowType') defaultText = 'All Types';
+                else if (filterType === 'taskType') defaultText = 'All Tasks';
+                else if (filterType === 'status') defaultText = 'All Statuses';
+                display.innerHTML = defaultText;
+            } else if (selected.length === 1) {
+                display.innerHTML = selected[0];
+            } else {
+                display.innerHTML = `<span class="selected-count">${selected.length} selected</span>`;
             }
         }
+
+        function selectAllFilter(filterType) {
+            const checkboxes = document.querySelectorAll(`#${filterType}Options input[type="checkbox"]`);
+            checkboxes.forEach(cb => cb.checked = true);
+            updateMultiSelectFilter(filterType);
+        }
+
+        function clearAllFilter(filterType) {
+            const checkboxes = document.querySelectorAll(`#${filterType}Options input[type="checkbox"]`);
+            checkboxes.forEach(cb => cb.checked = false);
+            updateMultiSelectFilter(filterType);
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.multi-select-container')) {
+                document.querySelectorAll('.multi-select-dropdown').forEach(dropdown => {
+                    dropdown.classList.remove('show');
+                    dropdown.previousElementSibling.classList.remove('active');
+                });
+            }
+        });
 
         // Switch between table, chart, and timeline view
         function switchView(view) {
@@ -787,9 +1010,6 @@
         // Apply filters to smart data
         function applySmartFilters() {
             const itemType = document.getElementById('itemTypeFilter').value;
-            const workflowType = document.getElementById('workflowTypeFilter').value;
-            const taskType = document.getElementById('taskTypeFilter').value;
-            const status = document.getElementById('statusFilter').value;
             const search = document.getElementById('searchFilter').value.toLowerCase();
 
             let allItems = [];
@@ -806,16 +1026,30 @@
 
             // Apply filters
             return allItems.filter(item => {
-                // Workflow type filter
-                if (workflowType !== 'all' && item.workflow_type !== workflowType) return false;
+                // Workflow type filter - if any workflow types are selected, filter by them
+                if (multiSelectFilters.workflowType.length > 0) {
+                    if (!multiSelectFilters.workflowType.includes(item.workflow_type)) return false;
+                }
                 
-                // Task type filter (only for tasks)
-                if (taskType !== 'all' && item.type === 'task' && item.task_type !== taskType) return false;
+                // Task type filter - if any task types are selected, filter by them (only for tasks)
+                if (multiSelectFilters.taskType.length > 0 && item.type === 'task') {
+                    if (!multiSelectFilters.taskType.includes(item.task_type)) return false;
+                }
                 
-                // Status filter
-                if (status !== 'all') {
-                    if (status === 'deleted' && !item.is_deleted) return false;
-                    if (status !== 'deleted' && !item.status.includes(status)) return false;
+                // Status filter - if any statuses are selected, filter by them
+                if (multiSelectFilters.status.length > 0) {
+                    let matchesStatus = false;
+                    for (const selectedStatus of multiSelectFilters.status) {
+                        if (selectedStatus === 'deleted' && item.is_deleted) {
+                            matchesStatus = true;
+                            break;
+                        }
+                        if (selectedStatus !== 'deleted' && item.status.includes(selectedStatus)) {
+                            matchesStatus = true;
+                            break;
+                        }
+                    }
+                    if (!matchesStatus) return false;
                 }
                 
                 // Search filter
