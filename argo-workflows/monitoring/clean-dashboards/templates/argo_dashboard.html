@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Workflows & Tasks Analysis</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -491,6 +492,19 @@
                     <label>Search:</label>
                     <input type="text" id="searchFilter" placeholder="Search names..." onkeyup="updateSmartView()">
                 </div>
+                <div class="control-group" id="chartControls" style="display: none;">
+                    <label>Reference Lines:</label>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;">
+                            <input type="checkbox" id="showAverageLines" onchange="updateSmartView()" checked>
+                            Average
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;">
+                            <input type="checkbox" id="showMedianLines" onchange="updateSmartView()" checked>
+                            Median
+                        </label>
+                    </div>
+                </div>
             </div>
             <div id="smartTableView" class="smart-table-container">
                 <div class="loading">Loading smart analysis...</div>
@@ -750,6 +764,9 @@
             document.getElementById('smartTableView').style.display = view === 'table' ? 'block' : 'none';
             document.getElementById('smartChartView').style.display = view === 'chart' ? 'block' : 'none';
             
+            // Show/hide chart controls
+            document.getElementById('chartControls').style.display = view === 'chart' ? 'block' : 'none';
+            
             updateSmartView();
         }
 
@@ -922,19 +939,76 @@
             const datasets = [];
             let colorIndex = 0;
 
+            // Get time range for reference lines
+            const minTime = Math.min(...validData.map(item => new Date(item.started_at).getTime()));
+            const maxTime = Math.max(...validData.map(item => new Date(item.started_at).getTime()));
+
+            // Check if reference lines should be shown
+            const showAverageLines = document.getElementById('showAverageLines').checked;
+            const showMedianLines = document.getElementById('showMedianLines').checked;
+
             Object.keys(groups).forEach(groupKey => {
                 const color = colors[colorIndex % colors.length];
+                const borderColor = color.replace('0.8', '1');
                 colorIndex++;
 
+                // Add bar chart dataset for this group
                 datasets.push({
                     label: groupKey,
                     data: groups[groupKey],
                     backgroundColor: color,
-                    borderColor: color.replace('0.8', '1'),
+                    borderColor: borderColor,
                     borderWidth: 1,
                     barThickness: 20,
-                    maxBarThickness: 30
+                    maxBarThickness: 30,
+                    type: 'bar'
                 });
+
+                // Calculate reference values
+                const durations = groups[groupKey].map(item => item.y);
+                const average = durations.reduce((sum, d) => sum + d, 0) / durations.length;
+                const sortedDurations = [...durations].sort((a, b) => a - b);
+                const median = sortedDurations[Math.floor(sortedDurations.length / 2)];
+
+                // Add average line dataset
+                if (showAverageLines) {
+                    datasets.push({
+                        label: `${groupKey} Average`,
+                        data: [
+                            { x: new Date(minTime), y: average },
+                            { x: new Date(maxTime), y: average }
+                        ],
+                        type: 'line',
+                        borderColor: borderColor,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        fill: false,
+                        tension: 0
+                    });
+                }
+
+                // Add median line dataset
+                if (showMedianLines) {
+                    datasets.push({
+                        label: `${groupKey} Median`,
+                        data: [
+                            { x: new Date(minTime), y: median },
+                            { x: new Date(maxTime), y: median }
+                        ],
+                        type: 'line',
+                        borderColor: borderColor,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [10, 5],
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        fill: false,
+                        tension: 0
+                    });
+                }
             });
 
             smartChart = new Chart(ctx, {
@@ -973,29 +1047,42 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Performance Chart - Individual Executions as Bar Chart'
+                            text: 'Performance Chart - Individual Executions with Reference Lines'
                         },
                         tooltip: {
+                            filter: function(tooltipItem) {
+                                // Only show tooltips for bar chart data, not reference lines
+                                return tooltipItem.dataset.type === 'bar' || !tooltipItem.dataset.type;
+                            },
                             callbacks: {
                                 title: function(context) {
                                     return new Date(context[0].parsed.x).toLocaleString();
                                 },
                                 label: function(context) {
                                     const point = context.raw;
-                                    return [
-                                        `${context.dataset.label}: ${formatDuration(point.y)}`,
-                                        `Name: ${point.name}`,
-                                        `Status: ${point.status}`,
-                                        `Type: ${point.type}`,
-                                        point.workflow_type ? `Workflow: ${point.workflow_type}` : '',
-                                        point.task_type ? `Task: ${point.task_type}` : ''
-                                    ].filter(Boolean);
+                                    if (point && point.name) {
+                                        return [
+                                            `${context.dataset.label}: ${formatDuration(point.y)}`,
+                                            `Name: ${point.name}`,
+                                            `Status: ${point.status}`,
+                                            `Type: ${point.type}`,
+                                            point.workflow_type ? `Workflow: ${point.workflow_type}` : '',
+                                            point.task_type ? `Task: ${point.task_type}` : ''
+                                        ].filter(Boolean);
+                                    }
+                                    return `${context.dataset.label}: ${formatDuration(context.parsed.y)}`;
                                 }
                             }
                         },
                         legend: {
                             display: true,
-                            position: 'top'
+                            position: 'top',
+                            labels: {
+                                filter: function(legendItem, chartData) {
+                                    // Group reference lines in legend
+                                    return true;
+                                }
+                            }
                         }
                     }
                 }
