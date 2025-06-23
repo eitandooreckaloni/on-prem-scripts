@@ -551,8 +551,8 @@
                 <div class="control-group">
                     <label>View Type:</label>
                     <div class="view-toggle">
-                        <button id="tableViewBtn" class="active" onclick="switchView('table')">Table View</button>
-                        <button id="chartViewBtn" onclick="switchView('chart')">Performance Chart</button>
+                        <button id="chartViewBtn" class="active" onclick="switchView('chart')">Performance Chart</button>
+                        <button id="tableViewBtn" onclick="switchView('table')">Table View</button>
                     </div>
                 </div>
                 <div class="control-group">
@@ -674,7 +674,7 @@
         let isLoading = false;
         let smartChart = null;
         let smartData = { workflows: [], tasks: [], summary: {} };
-        let currentView = 'table';
+        let currentView = 'chart';
         let multiSelectFilters = {
             workflowType: [],
             taskType: [],
