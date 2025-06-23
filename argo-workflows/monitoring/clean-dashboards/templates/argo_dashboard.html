@@ -690,8 +690,6 @@
             return 'status-unknown';
         }
 
-
-
         // Load smart data
         async function loadSmartData() {
             try {
@@ -740,7 +738,7 @@
             }
         }
 
-        // Switch between table and chart view
+        // Switch between table, chart, and timeline view
         function switchView(view) {
             currentView = view;
             
@@ -853,7 +851,7 @@
             tableView.innerHTML = tableHTML;
         }
 
-        // Update smart chart - now shows individual executions over time
+        // Update smart chart - now shows individual executions as bar chart over time
         function updateSmartChart(filteredData) {
             const ctx = document.getElementById('smartChart').getContext('2d');
             
@@ -868,7 +866,7 @@
 
             if (validData.length === 0) {
                 const emptyChart = new Chart(ctx, {
-                    type: 'scatter',
+                    type: 'bar',
                     data: { datasets: [] },
                     options: {
                         responsive: true,
@@ -884,6 +882,9 @@
                 smartChart = emptyChart;
                 return;
             }
+
+            // Sort data by start time
+            validData.sort((a, b) => new Date(a.started_at) - new Date(b.started_at));
 
             // Group data by type for different colors
             const groups = {};
@@ -902,11 +903,6 @@
                     task_type: item.task_type,
                     type: item.type
                 });
-            });
-
-            // Sort each group by time
-            Object.keys(groups).forEach(key => {
-                groups[key].sort((a, b) => a.x - b.x);
             });
 
             // Create datasets with different colors for each group
@@ -935,30 +931,37 @@
                     data: groups[groupKey],
                     backgroundColor: color,
                     borderColor: color.replace('0.8', '1'),
-                    borderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    borderWidth: 1,
+                    barThickness: 20,
+                    maxBarThickness: 30
                 });
             });
 
             smartChart = new Chart(ctx, {
-                type: 'scatter',
+                type: 'bar',
                 data: { datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: {
                         intersect: false,
-                        mode: 'point'
+                        mode: 'nearest'
                     },
-                                         scales: {
-                         x: {
-                             type: 'time',
-                             title: {
-                                 display: true,
-                                 text: 'Start Time'
-                             }
-                         },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            title: {
+                                display: true,
+                                text: 'Start Time'
+                            },
+                            time: {
+                                displayFormats: {
+                                    minute: 'HH:mm',
+                                    hour: 'HH:mm',
+                                    day: 'MMM dd'
+                                }
+                            }
+                        },
                         y: {
                             title: {
                                 display: true,
@@ -970,7 +973,7 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Performance Chart - Individual Executions Over Time'
+                            text: 'Performance Chart - Individual Executions as Bar Chart'
                         },
                         tooltip: {
                             callbacks: {
@@ -997,7 +1000,7 @@
                     }
                 }
             });
-                }
+        }
 
         // Refresh all data
         async function refreshAllData() {
