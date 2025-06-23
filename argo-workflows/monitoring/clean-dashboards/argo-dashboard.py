@@ -98,9 +98,16 @@ class ArgoConnection:
             workflows_data = json.loads(result.stdout)
             workflows = []
             
-            if workflows_data and 'items' in workflows_data:
-                # Sort by creation time (newest first) and limit results
+            # Handle both array format (CLI returns this) and object with 'items' format
+            if isinstance(workflows_data, list):
+                items = workflows_data
+            elif workflows_data and 'items' in workflows_data:
                 items = workflows_data['items']
+            else:
+                items = []
+                
+            if items:
+                # Sort by creation time (newest first) and limit results
                 items.sort(key=lambda x: x.get('metadata', {}).get('creationTimestamp', ''), reverse=True)
                 items = items[:limit]  # Apply manual limit
                 
