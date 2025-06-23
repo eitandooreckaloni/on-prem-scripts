@@ -1,10 +1,10 @@
-# 🚀 Argo Workflows Monitoring
+# 🚀 Argo Workflows Management
 
 ## **TL;DR - What You Need** ⚡
 
 **For simple, portable monitoring (RECOMMENDED):**
 ```bash
-cd simple-monitoring/
+cd monitoring/simple-monitoring/
 docker-compose up -d
 # Dashboard: http://localhost:8000
 ```
@@ -15,20 +15,37 @@ docker-compose up -d
 
 ```
 argo-workflows/
-├── simple-monitoring/     # ✅ USE THIS - Simple, portable solution
-│   ├── workflow_monitor.py    # Main monitoring app
-│   ├── templates/dashboard.html  # Web dashboard
-│   ├── Dockerfile            # Easy deployment
-│   ├── docker-compose.yml    # One-command setup
-│   └── README.md            # Full deployment guide
-├── archive/               # ❌ Old complex ELK stack approach
-└── README.md             # This file
+├── setup/                     # 🔧 Installation & setup scripts
+│   ├── install-argo.sh           # Initial Argo installation
+│   ├── reinstall-argo.sh         # Clean reinstall script
+│   ├── fix-auth.sh               # Authentication fixes
+│   └── open-argo-gui.sh          # Launch Argo UI
+├── workflows/                  # 📋 Workflow definitions
+│   ├── simple-dag-workflow.yaml   # Basic DAG example
+│   ├── cron-ml-pipeline.yaml     # ML pipeline with scheduling
+│   └── monitored-workflow.yaml   # Workflow with monitoring
+├── monitoring/                 # 📊 Monitoring & metrics
+│   ├── simple-monitoring/         # ✅ USE THIS - Simple, portable solution
+│   ├── kibana/                   # Kibana integration files
+│   ├── argo-metrics-collector.py # Metrics collection script
+│   ├── monitoring-strategy.md    # Monitoring approach documentation
+│   ├── setup-log-forwarding.sh  # Log forwarding setup
+│   └── test-monitoring.py       # Monitoring tests
+├── config/                     # ⚙️ Configuration files
+│   ├── argo-workflow-rbac.yaml   # RBAC configuration
+│   ├── collector-config.yaml    # Metrics collector config
+│   └── filebeat-argo-logs.yaml  # Log forwarding config
+├── docs/                       # 📚 Documentation
+│   ├── KIBANA_DURATION_GUIDE.md  # Kibana setup guide
+│   └── LOG_FORWARDING_GUIDE.md   # Log forwarding guide
+├── backups/                    # 💾 Backup files
+└── README.md                   # This file
 ```
 
 ## 🎯 **Why Simple Monitoring?**
 
-| Feature | Simple Solution | ELK Stack (archived) |
-|---------|----------------|----------------------|
+| Feature | Simple Solution | ELK Stack |
+|---------|----------------|-----------|
 | **Setup Time** | 5 minutes | 2-3 hours |
 | **Dependencies** | Python + SQLite | Elasticsearch + Grafana |
 | **Resource Usage** | ~100MB RAM | ~2GB RAM |
@@ -39,14 +56,14 @@ argo-workflows/
 
 ### **Option 1: Docker (Recommended)**
 ```bash
-cd simple-monitoring/
+cd monitoring/simple-monitoring/
 docker-compose up -d
 ```
 **Dashboard:** http://localhost:8000
 
 ### **Option 2: Local Development**
 ```bash
-cd simple-monitoring/
+cd monitoring/simple-monitoring/
 pip install -r requirements.txt
 python create_sample_data.py  # Create test data
 python workflow_monitor.py
@@ -85,6 +102,7 @@ Works seamlessly with your existing:
 
 ---
 
-**For the simple monitoring solution, see: [`simple-monitoring/README.md`](simple-monitoring/README.md)**
+**For the simple monitoring solution, see: [`monitoring/simple-monitoring/README.md`](monitoring/simple-monitoring/README.md)**
 
-**Old complex approach archived in: [`archive/`](archive/)** 
+**Configuration files are organized in: [`config/`](config/)**
+**Setup scripts are located in: [`setup/`](setup/)** 
