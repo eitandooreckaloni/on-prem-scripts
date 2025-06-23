@@ -200,6 +200,17 @@
             color: #383d41;
         }
 
+        .status-deleted {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px dashed #bee5eb;
+        }
+
+        .deleted-row {
+            opacity: 0.7;
+            font-style: italic;
+        }
+
         .refresh-btn {
             background: #28a745;
             margin-left: 1rem;
@@ -331,6 +342,10 @@
                         <div class="stat-label">Running</div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-number stat-info">${stats.deleted}</div>
+                        <div class="stat-label">Deleted</div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-number stat-info">${stats.avg_duration}s</div>
                         <div class="stat-label">Avg Duration</div>
                     </div>
@@ -365,9 +380,9 @@
                         </thead>
                         <tbody>
                             ${workflows.map(wf => `
-                                <tr>
+                                <tr class="${wf.is_deleted ? 'deleted-row' : ''}">
                                     <td><strong>${wf.name}</strong></td>
-                                    <td><span class="status-badge status-${wf.status.toLowerCase()}">${wf.status}</span></td>
+                                    <td><span class="status-badge ${getStatusClass(wf.status)}">${wf.status}</span></td>
                                     <td>${formatTimestamp(wf.created_at)}</td>
                                     <td>${formatTimestamp(wf.started_at)}</td>
                                     <td>${formatDuration(wf.duration_seconds)}</td>
@@ -396,6 +411,15 @@
             const minutes = Math.floor(seconds / 60);
             const remainingSeconds = seconds % 60;
             return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
+        }
+
+        function getStatusClass(status) {
+            const statusLower = status.toLowerCase();
+            if (statusLower.includes('deleted')) return 'status-deleted';
+            if (statusLower.includes('succeeded')) return 'status-succeeded';
+            if (statusLower.includes('failed')) return 'status-failed';
+            if (statusLower.includes('running')) return 'status-running';
+            return 'status-unknown';
         }
 
         // Refresh all data

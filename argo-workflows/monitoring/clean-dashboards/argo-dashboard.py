@@ -86,7 +86,18 @@ class ArgoConnection:
             }
     
     def get_workflows(self, limit: int = 10) -> List[Dict]:
-        """Get recent workflows from Argo"""
+        """Get workflows from both live Argo and database history"""
+        # First get live workflows from Argo
+        live_workflows = self._get_live_workflows()
+        
+        # Store/update live workflows in database
+        self._store_workflows(live_workflows)
+        
+        # Get all workflows from database (includes deleted ones)
+        return self._get_workflows_with_history(limit)
+    
+    def _get_live_workflows(self) -> List[Dict]:
+        """Get current workflows from Argo CLI"""
         try:
             result = subprocess.run([
                 'argo', 'list', '-n', self.namespace, '-o', 'json'
@@ -107,10 +118,6 @@ class ArgoConnection:
                 items = []
                 
             if items:
-                # Sort by creation time (newest first) and limit results
-                items.sort(key=lambda x: x.get('metadata', {}).get('creationTimestamp', ''), reverse=True)
-                items = items[:limit]  # Apply manual limit
-                
                 for wf in items:
                     metadata = wf.get('metadata', {})
                     status = wf.get('status', {})
@@ -139,8 +146,73 @@ class ArgoConnection:
             return workflows
             
         except Exception as e:
-            print(f"Error getting workflows: {e}")
+            print(f"Error getting live workflows: {e}")
             return []
+    
+    def _store_workflows(self, workflows: List[Dict]):
+        """Store workflows in database"""
+        if not workflows:
+            return
+            
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        for wf in workflows:
+            try:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO workflows 
+                    (name, uid, namespace, status, created_at, started_at, finished_at, duration_seconds, collected_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (
+                    wf['name'], wf['uid'], wf['namespace'], wf['status'],
+                    wf['created_at'], wf['started_at'], wf['finished_at'], wf['duration_seconds']
+                ))
+            except Exception as e:
+                print(f"Error storing workflow {wf['name']}: {e}")
+        
+        conn.commit()
+        conn.close()
+    
+    def _get_workflows_with_history(self, limit: int) -> List[Dict]:
+        """Get workflows from database with deleted status"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Get current live workflow UIDs
+        live_workflows = self._get_live_workflows()
+        live_uids = {wf['uid'] for wf in live_workflows}
+        
+        # Get all workflows from database, ordered by creation time
+        cursor.execute('''
+            SELECT name, uid, namespace, status, created_at, started_at, finished_at, duration_seconds, collected_at
+            FROM workflows 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        ''', (limit * 2,))  # Get more to account for deleted ones
+        
+        workflows = []
+        for row in cursor.fetchall():
+            name, uid, namespace, status, created_at, started_at, finished_at, duration_seconds, collected_at = row
+            
+            # Determine if workflow is deleted (not in live workflows)
+            is_deleted = uid not in live_uids
+            display_status = f"Deleted ({status})" if is_deleted else status
+            
+            workflows.append({
+                'name': name,
+                'uid': uid,
+                'status': display_status,
+                'created_at': created_at,
+                'started_at': started_at,
+                'finished_at': finished_at,
+                'duration_seconds': duration_seconds,
+                'namespace': namespace,
+                'is_deleted': is_deleted,
+                'last_seen': collected_at
+            })
+        
+        conn.close()
+        return workflows[:limit]
     
     def _parse_timestamp(self, timestamp_str: Optional[str]) -> Optional[datetime]:
         """Parse ISO timestamp string to datetime"""
@@ -156,8 +228,8 @@ class ArgoConnection:
             return None
     
     def get_stats(self) -> Dict:
-        """Get basic workflow statistics"""
-        workflows = self.get_workflows(50)  # Get more for stats
+        """Get workflow statistics including deleted workflows"""
+        workflows = self.get_workflows(100)  # Get more for stats
         
         if not workflows:
             return {
@@ -165,18 +237,20 @@ class ArgoConnection:
                 "succeeded": 0,
                 "failed": 0,
                 "running": 0,
+                "deleted": 0,
                 "avg_duration": 0
             }
         
         total = len(workflows)
         succeeded = sum(1 for wf in workflows if wf['status'] == 'Succeeded')
-        failed = sum(1 for wf in workflows if wf['status'] == 'Failed')
+        failed = sum(1 for wf in workflows if wf['status'] == 'Failed')  
         running = sum(1 for wf in workflows if wf['status'] == 'Running')
+        deleted = sum(1 for wf in workflows if wf.get('is_deleted', False))
         
-        # Calculate average duration for completed workflows
+        # Calculate average duration for completed workflows (excluding deleted)
         completed_durations = [
             wf['duration_seconds'] for wf in workflows 
-            if wf['duration_seconds'] is not None
+            if wf['duration_seconds'] is not None and not wf.get('is_deleted', False)
         ]
         avg_duration = sum(completed_durations) / len(completed_durations) if completed_durations else 0
         
@@ -185,6 +259,7 @@ class ArgoConnection:
             "succeeded": succeeded,
             "failed": failed,
             "running": running,
+            "deleted": deleted,
             "avg_duration": round(avg_duration, 2)
         }
 
