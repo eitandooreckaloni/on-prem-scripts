@@ -7,7 +7,7 @@ set -e
 
 # Source centralized versions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/../versions.sh"
+source "${SCRIPT_DIR}/../../../versions.sh"
 
 # Configuration
 MONITOR_DIR="${SCRIPT_DIR}/simple-monitoring"
