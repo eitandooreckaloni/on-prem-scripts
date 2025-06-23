@@ -1,0 +1,228 @@
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: data-processor-cron
+  namespace: argo
+  labels:
+    monitoring: "enabled"
+    pipeline-type: "data-processing"
+    schedule-type: "cron"
+spec:
+  schedule: "*/7 * * * *" # Every 7 minutes
+  concurrencyPolicy: "Forbid"
+  startingDeadlineSeconds: 300
+
+  workflowSpec:
+    entrypoint: data-processing-pipeline
+    arguments:
+      parameters:
+      - name: batch-id
+        value: "batch-{{workflow.creationTimestamp}}"
+      - name: source-type
+        value: "api-data"
+
+    templates:
+    - name: data-processing-pipeline
+      dag:
+        tasks:
+        # Phase 1: Pipeline Start
+        - name: pipeline-start
+          template: timing-marker
+          arguments:
+            parameters:
+            - name: event-type
+              value: "data_processing_start"
+            - name: task-name
+              value: "data-processor-cron"
+
+        # Phase 2: Data Collection
+        - name: collect-data
+          template: data-collection-task
+          dependencies: [ pipeline-start ]
+          arguments:
+            parameters:
+            - name: batch-id
+              value: "{{workflow.parameters.batch-id}}"
+            - name: source-type
+              value: "{{workflow.parameters.source-type}}"
+
+        # Phase 3: Data Processing (sequential for simplicity)
+        - name: transform-data
+          template: data-transformation-task
+          dependencies: [ collect-data ]
+          arguments:
+            parameters:
+            - name: batch-id
+              value: "{{workflow.parameters.batch-id}}"
+
+        - name: validate-output
+          template: validation-task
+          dependencies: [ transform-data ]
+          arguments:
+            parameters:
+            - name: batch-id
+              value: "{{workflow.parameters.batch-id}}"
+
+        # Phase 4: Pipeline End
+        - name: pipeline-end
+          template: timing-marker
+          dependencies: [ validate-output ]
+          arguments:
+            parameters:
+            - name: event-type
+              value: "data_processing_complete"
+            - name: task-name
+              value: "data-processor-cron"
+
+    # Task Templates
+    - name: timing-marker
+      inputs:
+        parameters:
+        - name: event-type
+        - name: task-name
+      container:
+        image: python:3.9-slim
+        command: [ python, -c ]
+        args:
+        - |
+          import json
+          from datetime import datetime, timezone
+
+          event_type = "{{inputs.parameters.event-type}}"
+          task_name = "{{inputs.parameters.task-name}}"
+          timestamp = datetime.now(timezone.utc).isoformat()
+
+          timing_record = {
+              "@timestamp": timestamp,
+              "workflow": {
+                  "name": "{{workflow.name}}",
+                  "uid": "{{workflow.uid}}",
+                  "cron_schedule": "*/7 * * * *",
+                  "batch_id": "{{workflow.parameters.batch-id}}"
+              },
+              "event": {
+                  "type": event_type,
+                  "task": task_name
+              },
+              "cron": {
+                  "execution_time": timestamp,
+                  "expected_duration_minutes": 3
+              }
+          }
+
+          print("📅 DATA PROCESSING TIMING RECORD:")
+          print(json.dumps(timing_record, indent=2))
+
+    - name: data-collection-task
+      inputs:
+        parameters:
+        - name: batch-id
+        - name: source-type
+      container:
+        image: python:3.9-slim
+        command: [ python, -c ]
+        args:
+        - |
+          import time
+          import random
+          import json
+
+          batch_id = "{{inputs.parameters.batch-id}}"
+          source_type = "{{inputs.parameters.source-type}}"
+
+          print(f"📥 Collecting data for batch: {batch_id}")
+          print(f"Source type: {source_type}")
+
+          # Simulate data collection from different sources
+          collection_time = random.uniform(15, 25)  # 15-25 seconds
+          records_collected = random.randint(500, 1000)
+
+          # Simulate API calls or file reads
+          sources = ["api-endpoint-1", "api-endpoint-2", "file-system"]
+
+          for i, source in enumerate(sources):
+              source_time = collection_time / len(sources)
+              source_records = records_collected // len(sources)
+              print(f"  Collecting from {source}: {source_time:.1f}s, {source_records} records")
+              time.sleep(source_time)
+
+          print(f"✅ Data collection complete:")
+          print(f"  Total records: {records_collected}")
+          print(f"  Collection time: {collection_time:.1f}s")
+          print(f"  Batch ID: {batch_id}")
+
+    - name: data-transformation-task
+      inputs:
+        parameters:
+        - name: batch-id
+      container:
+        image: python:3.9-slim
+        command: [ python, -c ]
+        args:
+        - |
+          import time
+          import random
+
+          batch_id = "{{inputs.parameters.batch-id}}"
+          print(f"🔄 Transforming data for batch: {batch_id}")
+
+          # Simulate data transformation steps
+          transformations = [
+              ("data_cleaning", random.uniform(8, 12)),
+              ("format_conversion", random.uniform(10, 15)),
+              ("aggregation", random.uniform(5, 10))
+          ]
+
+          total_time = 0
+          processed_records = 0
+
+          for transform_name, transform_time in transformations:
+              records = random.randint(100, 200)
+              print(f"  {transform_name}: {transform_time:.1f}s, {records} records processed")
+              time.sleep(transform_time)
+              total_time += transform_time
+              processed_records += records
+
+          print(f"✅ Data transformation complete:")
+          print(f"  Total processed records: {processed_records}")
+          print(f"  Transformation time: {total_time:.1f}s")
+
+    - name: validation-task
+      inputs:
+        parameters:
+        - name: batch-id
+      container:
+        image: python:3.9-slim
+        command: [ python, -c ]
+        args:
+        - |
+          import time
+          import random
+
+          batch_id = "{{inputs.parameters.batch-id}}"
+          print(f"✅ Validating processed data for batch: {batch_id}")
+
+          # Simulate validation checks
+          validation_time = random.uniform(10, 20)
+
+          # Simulate different validation metrics
+          completeness = random.uniform(0.90, 0.99)
+          accuracy = random.uniform(0.85, 0.95)
+          consistency = random.uniform(0.88, 0.98)
+
+          time.sleep(validation_time)
+
+          # Determine overall validation result
+          overall_score = (completeness + accuracy + consistency) / 3
+          validation_passed = overall_score > 0.85
+
+          print(f"✅ Validation complete:")
+          print(f"  Completeness: {completeness:.3f}")
+          print(f"  Accuracy: {accuracy:.3f}")
+          print(f"  Consistency: {consistency:.3f}")
+          print(f"  Overall Score: {overall_score:.3f}")
+          print(f"  Validation Result: {'PASSED' if validation_passed else 'FAILED'}")
+          print(f"  Validation time: {validation_time:.1f}s")
+
+          if not validation_passed:
+              print("⚠️  Warning: Validation failed, but continuing for demo purposes") 
