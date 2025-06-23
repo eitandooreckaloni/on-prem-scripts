@@ -286,6 +286,27 @@ async def get_stats():
     """Get workflow statistics"""
     return argo_conn.get_stats()
 
+@app.get("/api/chart-data")
+async def get_chart_data(limit: int = 50):
+    """Get workflow data for charts"""
+    workflows = argo_conn.get_workflows(limit)
+    
+    chart_data = []
+    for wf in workflows:
+        if wf.get('started_at') and wf.get('duration_seconds') is not None:
+            chart_data.append({
+                'name': wf['name'],
+                'started_at': wf['started_at'],
+                'duration': wf['duration_seconds'],
+                'status': wf['status'],
+                'is_deleted': wf.get('is_deleted', False)
+            })
+    
+    # Sort by start time
+    chart_data.sort(key=lambda x: x['started_at'])
+    
+    return chart_data
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
