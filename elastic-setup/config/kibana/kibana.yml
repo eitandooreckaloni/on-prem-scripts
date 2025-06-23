@@ -1,0 +1,11 @@
+# Kibana 8.17.0 Configuration
+server.name: "on-prem-kibana"
+server.host: "0.0.0.0"
+server.port: 5601
+
+# Elasticsearch connection
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+elasticsearch.username: "kibana_system"
+
+# Monitoring
+monitoring.ui.container.elasticsearch.enabled: true

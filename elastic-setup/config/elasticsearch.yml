@@ -1,0 +1,30 @@
+# Elasticsearch 8.17.0 Configuration
+cluster.name: "on-prem-elastic-cluster"
+node.name: "elastic-node-1"
+
+# Network
+network.host: 0.0.0.0
+http.port: 9200
+
+# Discovery
+discovery.type: single-node
+
+# Security
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: true
+
+# Monitoring
+xpack.monitoring.collection.enabled: true
+
+# Machine Learning
+xpack.ml.enabled: true
+
+# Path settings
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs
+
+# JVM settings
+bootstrap.memory_lock: true
+
+# Index settings
+action.destructive_requires_name: true
