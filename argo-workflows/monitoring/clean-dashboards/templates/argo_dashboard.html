@@ -286,6 +286,126 @@
             height: 400px;
             position: relative;
         }
+
+        .smart-table-section {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .smart-controls {
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+
+        .control-group select, .control-group input {
+            padding: 0.5rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .view-toggle button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #dee2e6;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .view-toggle button.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .smart-table-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .smart-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .smart-table th,
+        .smart-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .smart-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .smart-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .task-row {
+            background: #f9f9f9;
+        }
+
+        .task-row td:first-child {
+            padding-left: 2rem;
+            font-style: italic;
+        }
+
+        .type-badge {
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .type-workflow {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .type-task {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .smart-chart-container {
+            padding: 2rem;
+            height: 500px;
+            position: relative;
+        }
     </style>
 </head>
 <body>
@@ -328,6 +448,62 @@
             </div>
         </div>
 
+        <!-- Smart Table/Chart Section -->
+        <div class="smart-table-section">
+            <div class="section-header">
+                <h2>🔍 Smart Workflows & Tasks Analysis</h2>
+            </div>
+            <div class="smart-controls">
+                <div class="control-group">
+                    <label>View Type:</label>
+                    <div class="view-toggle">
+                        <button id="tableViewBtn" class="active" onclick="switchView('table')">Table</button>
+                        <button id="chartViewBtn" onclick="switchView('chart')">Chart</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Show:</label>
+                    <select id="itemTypeFilter" onchange="updateSmartView()">
+                        <option value="all">All Items</option>
+                        <option value="workflows">Workflows Only</option>
+                        <option value="tasks">Tasks Only</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Workflow Type:</label>
+                    <select id="workflowTypeFilter" onchange="updateSmartView()">
+                        <option value="all">All Types</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Task Type:</label>
+                    <select id="taskTypeFilter" onchange="updateSmartView()">
+                        <option value="all">All Tasks</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Status:</label>
+                    <select id="statusFilter" onchange="updateSmartView()">
+                        <option value="all">All Statuses</option>
+                        <option value="Succeeded">Succeeded</option>
+                        <option value="Failed">Failed</option>
+                        <option value="Running">Running</option>
+                        <option value="deleted">Deleted</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Search:</label>
+                    <input type="text" id="searchFilter" placeholder="Search names..." onkeyup="updateSmartView()">
+                </div>
+            </div>
+            <div id="smartTableView" class="smart-table-container">
+                <div class="loading">Loading smart analysis...</div>
+            </div>
+            <div id="smartChartView" class="smart-chart-container" style="display: none;">
+                <canvas id="smartChart"></canvas>
+            </div>
+        </div>
+
         <!-- Workflows Section -->
         <div class="workflows-section">
             <div class="section-header">
@@ -345,6 +521,9 @@
         let durationChart = null;
         let chartData = [];
         let allStatuses = new Set();
+        let smartChart = null;
+        let smartData = { workflows: [], tasks: [], summary: {} };
+        let currentView = 'table';
 
         // DOM elements
         const testConnectionBtn = document.getElementById('testConnection');
@@ -625,6 +804,259 @@
             return '#17a2b8';
         }
 
+        // Load smart data
+        async function loadSmartData() {
+            try {
+                const response = await fetch('/api/tasks-data?limit=50');
+                smartData = await response.json();
+                
+                // Populate filter dropdowns
+                populateFilterDropdowns();
+                updateSmartView();
+            } catch (error) {
+                console.error('Failed to load smart data:', error);
+                document.getElementById('smartTableView').innerHTML = '<div class="error-message">Failed to load smart analysis data</div>';
+            }
+        }
+
+        // Populate filter dropdowns
+        function populateFilterDropdowns() {
+            // Workflow types
+            const workflowTypeFilter = document.getElementById('workflowTypeFilter');
+            const currentWorkflowType = workflowTypeFilter.value;
+            workflowTypeFilter.innerHTML = '<option value="all">All Types</option>';
+            
+            if (smartData.summary.workflow_types) {
+                smartData.summary.workflow_types.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = type;
+                    workflowTypeFilter.appendChild(option);
+                });
+                workflowTypeFilter.value = currentWorkflowType;
+            }
+
+            // Task types
+            const taskTypeFilter = document.getElementById('taskTypeFilter');
+            const currentTaskType = taskTypeFilter.value;
+            taskTypeFilter.innerHTML = '<option value="all">All Tasks</option>';
+            
+            if (smartData.summary.task_types) {
+                smartData.summary.task_types.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = type;
+                    taskTypeFilter.appendChild(option);
+                });
+                taskTypeFilter.value = currentTaskType;
+            }
+        }
+
+        // Switch between table and chart view
+        function switchView(view) {
+            currentView = view;
+            
+            // Update button states
+            document.getElementById('tableViewBtn').classList.toggle('active', view === 'table');
+            document.getElementById('chartViewBtn').classList.toggle('active', view === 'chart');
+            
+            // Show/hide views
+            document.getElementById('smartTableView').style.display = view === 'table' ? 'block' : 'none';
+            document.getElementById('smartChartView').style.display = view === 'chart' ? 'block' : 'none';
+            
+            updateSmartView();
+        }
+
+        // Update smart view based on filters
+        function updateSmartView() {
+            const filteredData = applySmartFilters();
+            
+            if (currentView === 'table') {
+                updateSmartTable(filteredData);
+            } else {
+                updateSmartChart(filteredData);
+            }
+        }
+
+        // Apply filters to smart data
+        function applySmartFilters() {
+            const itemType = document.getElementById('itemTypeFilter').value;
+            const workflowType = document.getElementById('workflowTypeFilter').value;
+            const taskType = document.getElementById('taskTypeFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const search = document.getElementById('searchFilter').value.toLowerCase();
+
+            let allItems = [];
+            
+            // Add workflows if needed
+            if (itemType === 'all' || itemType === 'workflows') {
+                allItems = allItems.concat(smartData.workflows || []);
+            }
+            
+            // Add tasks if needed
+            if (itemType === 'all' || itemType === 'tasks') {
+                allItems = allItems.concat(smartData.tasks || []);
+            }
+
+            // Apply filters
+            return allItems.filter(item => {
+                // Workflow type filter
+                if (workflowType !== 'all' && item.workflow_type !== workflowType) return false;
+                
+                // Task type filter (only for tasks)
+                if (taskType !== 'all' && item.type === 'task' && item.task_type !== taskType) return false;
+                
+                // Status filter
+                if (status !== 'all') {
+                    if (status === 'deleted' && !item.is_deleted) return false;
+                    if (status !== 'deleted' && !item.status.includes(status)) return false;
+                }
+                
+                // Search filter
+                if (search && !item.name.toLowerCase().includes(search)) return false;
+                
+                return true;
+            });
+        }
+
+        // Update smart table
+        function updateSmartTable(filteredData) {
+            const tableView = document.getElementById('smartTableView');
+            
+            if (filteredData.length === 0) {
+                tableView.innerHTML = '<div class="loading">No items match your filters</div>';
+                return;
+            }
+
+            const tableHTML = `
+                <table class="smart-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Workflow Type</th>
+                            <th>Task Type</th>
+                            <th>Started</th>
+                            <th>Duration</th>
+                            <th>Workflow</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredData.map(item => `
+                            <tr class="${item.type === 'task' ? 'task-row' : ''}">
+                                <td><span class="type-badge type-${item.type}">${item.type.toUpperCase()}</span></td>
+                                <td><strong>${item.name}</strong></td>
+                                <td><span class="status-badge ${getStatusClass(item.status)}">${item.status}</span></td>
+                                <td>${item.workflow_type || '-'}</td>
+                                <td>${item.task_type || '-'}</td>
+                                <td>${formatTimestamp(item.started_at)}</td>
+                                <td>${formatDuration(item.duration_seconds)}</td>
+                                <td>${item.workflow_name || item.name}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            tableView.innerHTML = tableHTML;
+        }
+
+        // Update smart chart
+        function updateSmartChart(filteredData) {
+            const ctx = document.getElementById('smartChart').getContext('2d');
+            
+            if (smartChart) {
+                smartChart.destroy();
+            }
+
+            // Group by task type for chart
+            const taskGroups = {};
+            filteredData.forEach(item => {
+                if (item.duration_seconds != null) {
+                    const groupKey = item.task_type || item.workflow_type || 'Other';
+                    if (!taskGroups[groupKey]) {
+                        taskGroups[groupKey] = [];
+                    }
+                    taskGroups[groupKey].push(item.duration_seconds);
+                }
+            });
+
+            // Calculate averages for each group
+            const labels = Object.keys(taskGroups);
+            const averages = labels.map(label => {
+                const durations = taskGroups[label];
+                return durations.reduce((sum, d) => sum + d, 0) / durations.length;
+            });
+            const counts = labels.map(label => taskGroups[label].length);
+
+            smartChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Average Duration (seconds)',
+                        data: averages,
+                        backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Count',
+                        data: counts,
+                        type: 'line',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Average Duration (seconds)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Count'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Task/Workflow Performance Analysis'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    const label = context.label;
+                                    return [
+                                        `Count: ${counts[context.dataIndex]}`,
+                                        `Avg Duration: ${formatDuration(averages[context.dataIndex])}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         // Refresh all data
         async function refreshAllData() {
             if (isLoading) return;
@@ -633,7 +1065,7 @@
             refreshDataBtn.disabled = true;
             refreshDataBtn.textContent = 'Refreshing...';
 
-            await Promise.all([loadStats(), loadWorkflows(), loadChart()]);
+            await Promise.all([loadStats(), loadWorkflows(), loadChart(), loadSmartData()]);
 
             isLoading = false;
             refreshDataBtn.disabled = false;

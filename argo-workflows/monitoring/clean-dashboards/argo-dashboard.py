@@ -214,6 +214,145 @@ class ArgoConnection:
         conn.close()
         return workflows[:limit]
     
+    def get_tasks_data(self, limit: int = 50) -> Dict:
+        """Get detailed task information from workflows"""
+        try:
+            # Get live workflows with full JSON data
+            result = subprocess.run([
+                'argo', 'list', '-n', self.namespace, '-o', 'json'
+            ], capture_output=True, text=True, timeout=30)
+            
+            if result.returncode != 0:
+                return {"workflows": [], "tasks": []}
+            
+            workflows_data = json.loads(result.stdout)
+            
+            # Handle both array format and object with 'items' format
+            if isinstance(workflows_data, list):
+                items = workflows_data
+            elif workflows_data and 'items' in workflows_data:
+                items = workflows_data['items']
+            else:
+                items = []
+            
+            # Get stored workflows for deleted detection
+            stored_workflows = self._get_workflows_with_history(limit * 2)
+            live_uids = {wf.get('uid') for wf in self._get_live_workflows()}
+            
+            workflows_summary = []
+            all_tasks = []
+            
+            # Process live workflows
+            for wf in items:
+                metadata = wf.get('metadata', {})
+                status_info = wf.get('status', {})
+                
+                workflow_name = metadata.get('name', 'Unknown')
+                workflow_uid = metadata.get('uid', '')
+                workflow_status = status_info.get('phase', 'Unknown')
+                
+                # Parse workflow timestamps
+                created_at = self._parse_timestamp(metadata.get('creationTimestamp'))
+                started_at = self._parse_timestamp(status_info.get('startedAt'))
+                finished_at = self._parse_timestamp(status_info.get('finishedAt'))
+                
+                # Calculate workflow duration
+                workflow_duration = None
+                if started_at and finished_at:
+                    workflow_duration = (finished_at - started_at).total_seconds()
+                
+                # Extract workflow type (remove timestamp suffix)
+                workflow_type = '-'.join(workflow_name.split('-')[:-1]) if '-' in workflow_name else workflow_name
+                
+                workflow_summary = {
+                    'type': 'workflow',
+                    'name': workflow_name,
+                    'uid': workflow_uid,
+                    'workflow_type': workflow_type,
+                    'status': workflow_status,
+                    'created_at': created_at.isoformat() if created_at else None,
+                    'started_at': started_at.isoformat() if started_at else None,
+                    'finished_at': finished_at.isoformat() if finished_at else None,
+                    'duration_seconds': workflow_duration,
+                    'is_deleted': False,
+                    'namespace': self.namespace
+                }
+                workflows_summary.append(workflow_summary)
+                
+                # Extract individual tasks/nodes
+                nodes = status_info.get('nodes', {})
+                for node_id, node in nodes.items():
+                    if node.get('type') == 'Pod':  # Only process actual task pods
+                        task_name = node.get('displayName', node.get('name', 'Unknown'))
+                        template_name = node.get('templateName', 'Unknown')
+                        task_phase = node.get('phase', 'Unknown')
+                        
+                        # Parse task timestamps
+                        task_started = self._parse_timestamp(node.get('startedAt'))
+                        task_finished = self._parse_timestamp(node.get('finishedAt'))
+                        
+                        # Calculate task duration
+                        task_duration = None
+                        if task_started and task_finished:
+                            task_duration = (task_finished - task_started).total_seconds()
+                        
+                        task_info = {
+                            'type': 'task',
+                            'name': task_name,
+                            'template_name': template_name,
+                            'task_type': template_name,  # For filtering
+                            'workflow_name': workflow_name,
+                            'workflow_type': workflow_type,
+                            'workflow_uid': workflow_uid,
+                            'status': task_phase,
+                            'started_at': task_started.isoformat() if task_started else None,
+                            'finished_at': task_finished.isoformat() if task_finished else None,
+                            'duration_seconds': task_duration,
+                            'is_deleted': False,
+                            'namespace': self.namespace
+                        }
+                        all_tasks.append(task_info)
+            
+            # Add deleted workflows from database
+            for stored_wf in stored_workflows:
+                if stored_wf.get('uid') not in live_uids:
+                    # This is a deleted workflow
+                    workflow_type = '-'.join(stored_wf['name'].split('-')[:-1]) if '-' in stored_wf['name'] else stored_wf['name']
+                    
+                    deleted_workflow = {
+                        'type': 'workflow',
+                        'name': stored_wf['name'],
+                        'uid': stored_wf['uid'],
+                        'workflow_type': workflow_type,
+                        'status': f"Deleted ({stored_wf['status']})",
+                        'created_at': stored_wf['created_at'],
+                        'started_at': stored_wf['started_at'],
+                        'finished_at': stored_wf['finished_at'],
+                        'duration_seconds': stored_wf['duration_seconds'],
+                        'is_deleted': True,
+                        'namespace': stored_wf['namespace']
+                    }
+                    workflows_summary.append(deleted_workflow)
+            
+            # Sort by start time
+            workflows_summary.sort(key=lambda x: x['started_at'] or '', reverse=True)
+            all_tasks.sort(key=lambda x: x['started_at'] or '', reverse=True)
+            
+            return {
+                "workflows": workflows_summary[:limit],
+                "tasks": all_tasks[:limit * 5],  # More tasks since there are many per workflow
+                "summary": {
+                    "total_workflows": len(workflows_summary),
+                    "total_tasks": len(all_tasks),
+                    "workflow_types": list(set(w['workflow_type'] for w in workflows_summary)),
+                    "task_types": list(set(t['task_type'] for t in all_tasks))
+                }
+            }
+            
+        except Exception as e:
+            print(f"Error getting tasks data: {e}")
+            return {"workflows": [], "tasks": [], "summary": {}}
+    
     def _parse_timestamp(self, timestamp_str: Optional[str]) -> Optional[datetime]:
         """Parse ISO timestamp string to datetime"""
         if not timestamp_str:
@@ -306,6 +445,11 @@ async def get_chart_data(limit: int = 50):
     chart_data.sort(key=lambda x: x['started_at'])
     
     return chart_data
+
+@app.get("/api/tasks-data")
+async def get_tasks_data(limit: int = 50):
+    """Get detailed task data for workflows and individual tasks"""
+    return argo_conn.get_tasks_data(limit)
 
 @app.get("/health")
 async def health_check():
