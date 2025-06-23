@@ -27,6 +27,14 @@ import plotly.graph_objs as go
 import plotly.utils
 import uvicorn
 
+# Import Kibana integration
+try:
+    from kibana_integration import KibanaIntegration
+    KIBANA_AVAILABLE = True
+except ImportError:
+    KIBANA_AVAILABLE = False
+    print("⚠️  Kibana integration not available - install elasticsearch package to enable")
+
 
 class SimpleWorkflowMonitor:
     """Lightweight workflow monitoring with SQLite backend"""
@@ -34,6 +42,15 @@ class SimpleWorkflowMonitor:
     def __init__(self, db_path: str = "workflow_metrics.db"):
         self.db_path = db_path
         self.init_database()
+        
+        # Initialize Kibana integration if available
+        self.kibana_integration = None
+        if KIBANA_AVAILABLE:
+            try:
+                self.kibana_integration = KibanaIntegration()
+                print("✅ Kibana integration enabled")
+            except Exception as e:
+                print(f"⚠️  Failed to initialize Kibana integration: {e}")
     
     def init_database(self):
         """Initialize SQLite database with workflow and task tables"""
@@ -706,6 +723,41 @@ async def get_workflow_detail(workflow_uid: str):
 async def get_workflow_trend(workflow_name: str, days: int = 30):
     """API endpoint for workflow performance trends"""
     return monitor.get_workflow_trends(workflow_name, days)
+
+@app.post("/api/kibana/sync")
+async def sync_to_kibana(background_tasks: BackgroundTasks, days: int = 1):
+    """Sync workflow metrics to Kibana/Elasticsearch"""
+    if not monitor.kibana_integration:
+        return {"error": "Kibana integration not available"}
+    
+    def sync_metrics():
+        try:
+            workflow_count = monitor.kibana_integration.send_workflow_metrics(monitor.db_path, days)
+            task_count = monitor.kibana_integration.send_task_metrics(monitor.db_path, days)
+            return {"workflow_metrics": workflow_count, "task_metrics": task_count}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    background_tasks.add_task(sync_metrics)
+    return {"message": f"Syncing last {days} days of metrics to Kibana", "status": "started"}
+
+@app.get("/api/kibana/status")
+async def kibana_status():
+    """Check Kibana integration status"""
+    if not monitor.kibana_integration:
+        return {"status": "unavailable", "message": "Kibana integration not initialized"}
+    
+    health = monitor.kibana_integration.health_check()
+    return health
+
+@app.get("/api/kibana/summary")
+async def kibana_duration_summary(days: int = 7):
+    """Get duration summary from Kibana"""
+    if not monitor.kibana_integration:
+        return {"error": "Kibana integration not available"}
+    
+    summary = monitor.kibana_integration.create_duration_summary(days)
+    return summary
 
 
 def create_dashboard_charts(stats: Dict) -> Dict:
