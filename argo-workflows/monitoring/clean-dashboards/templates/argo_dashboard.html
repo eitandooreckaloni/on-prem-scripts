@@ -1144,6 +1144,203 @@
             border-top: 1px solid var(--border-color);
         }
 
+        /* ClickUp-style Sorting Interface */
+        .sort-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sort-panel {
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+            display: none;
+        }
+
+        .sort-panel.show {
+            display: block;
+        }
+
+        .sort-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .sort-panel-header h4 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .sorts-list {
+            margin-bottom: 16px;
+            min-height: 40px;
+        }
+
+        .no-sorts {
+            color: var(--text-tertiary);
+            font-size: 13px;
+            font-style: italic;
+            padding: 12px 0;
+        }
+
+        .sort-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: var(--surface-1);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            margin-bottom: 8px;
+        }
+
+        .sort-priority {
+            background: var(--argo-orange);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .sort-column {
+            font-weight: 500;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .sort-direction {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .sort-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .sort-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-tertiary);
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.15s ease;
+        }
+
+        .sort-actions button:hover {
+            background: var(--surface-3);
+            color: var(--text-primary);
+        }
+
+        .add-sort-section {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .add-sort-section select {
+            flex: 1;
+        }
+
+        /* Sortable Table Headers */
+        .sortable-header {
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.15s ease;
+        }
+
+        .sortable-header:hover {
+            background: var(--surface-3) !important;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .sort-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 14px;
+            color: var(--text-tertiary);
+            opacity: 0.3;
+            transition: all 0.15s ease;
+        }
+
+        .sortable-header:hover .sort-indicator {
+            opacity: 0.7;
+        }
+
+        .sortable-header.sorted .sort-indicator {
+            opacity: 1;
+            color: var(--argo-orange);
+        }
+
+        .sort-arrow {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .sort-priority-badge {
+            background: var(--argo-orange);
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 2px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .sort-priority-badge.show {
+            display: flex;
+        }
+
+        .sort-indicator.neutral .sort-arrow::after {
+            content: '↕';
+            opacity: 0.4;
+        }
+
+        .sort-indicator.asc .sort-arrow::after {
+            content: '↑';
+        }
+
+        .sort-indicator.desc .sort-arrow::after {
+            content: '↓';
+        }
+
+        .sortable-header.sorted-primary {
+            background: rgba(255, 102, 51, 0.1) !important;
+        }
+
+        .sortable-header.sorted-secondary {
+            background: rgba(255, 102, 51, 0.05) !important;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .navbar-content {
@@ -1408,6 +1605,35 @@
                     <span class="material-icons" style="font-size: 20px; margin-right: 8px; vertical-align: text-bottom;">account_tree</span>
                     Workflows & Tasks Analysis
                 </h2>
+                <div id="sortControls" class="sort-controls" style="display: none;">
+                    <button class="btn btn-secondary" onclick="toggleSortPanel()" title="Sort Options">
+                        <span class="material-icons" style="font-size: 18px;">sort</span>
+                        Sort
+                    </button>
+                </div>
+            </div>
+            <div id="sortPanel" class="sort-panel">
+                <div class="sort-panel-header">
+                    <h4>Sort by</h4>
+                    <button class="btn btn-secondary" onclick="clearAllSorts()">Clear all</button>
+                </div>
+                <div id="sortsList" class="sorts-list">
+                    <div class="no-sorts">Click column headers to sort, or use the controls below</div>
+                </div>
+                <div class="add-sort-section">
+                    <select id="addSortColumn" class="form-control">
+                        <option value="">Select column to sort...</option>
+                        <option value="type">Type</option>
+                        <option value="name">Name</option>
+                        <option value="status">Status</option>
+                        <option value="workflow_type">Workflow Type</option>
+                        <option value="task_type">Task Type</option>
+                        <option value="started_at">Started</option>
+                        <option value="duration_seconds">Duration</option>
+                        <option value="namespace">Namespace</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="addSort()">Add sort</button>
+                </div>
             </div>
             <div id="smartTableView" class="table-wrapper">
                 <div class="loading">Loading analysis data...</div>
@@ -1439,6 +1665,9 @@
                 start: null,
                 end: null
             }
+        };
+        let sortConfig = {
+            sorts: [] // Array of {column, direction, type}
         };
 
         // DOM elements
@@ -1892,6 +2121,246 @@
             return { startTime, endTime };
         }
 
+        // Sorting functions
+        function toggleSortPanel() {
+            const panel = document.getElementById('sortPanel');
+            panel.classList.toggle('show');
+        }
+
+        function handleHeaderClick(column) {
+            const existingSortIndex = sortConfig.sorts.findIndex(sort => sort.column === column);
+            
+            if (existingSortIndex !== -1) {
+                const currentSort = sortConfig.sorts[existingSortIndex];
+                if (currentSort.direction === 'asc') {
+                    currentSort.direction = 'desc';
+                } else if (currentSort.direction === 'desc') {
+                    // Remove this sort
+                    sortConfig.sorts.splice(existingSortIndex, 1);
+                }
+            } else {
+                // Add new sort
+                if (sortConfig.sorts.length >= 2) {
+                    // Remove oldest sort
+                    sortConfig.sorts.shift();
+                }
+                sortConfig.sorts.push({
+                    column: column,
+                    direction: 'asc',
+                    type: getColumnType(column)
+                });
+            }
+            
+            updateSortUI();
+            updateSmartView();
+        }
+
+        function getColumnType(column) {
+            const types = {
+                'type': 'text',
+                'name': 'text',
+                'status': 'text',
+                'workflow_type': 'text',
+                'task_type': 'text',
+                'started_at': 'date',
+                'duration_seconds': 'number',
+                'namespace': 'text'
+            };
+            return types[column] || 'text';
+        }
+
+        function getColumnDisplayName(column) {
+            const names = {
+                'type': 'Type',
+                'name': 'Name',
+                'status': 'Status',
+                'workflow_type': 'Workflow Type',
+                'task_type': 'Task Type',
+                'started_at': 'Started',
+                'duration_seconds': 'Duration',
+                'namespace': 'Namespace'
+            };
+            return names[column] || column;
+        }
+
+        function addSort() {
+            const select = document.getElementById('addSortColumn');
+            const column = select.value;
+            
+            if (!column) return;
+            
+            // Check if already sorting by this column
+            const existingIndex = sortConfig.sorts.findIndex(sort => sort.column === column);
+            if (existingIndex !== -1) {
+                alert('Already sorting by this column');
+                return;
+            }
+            
+            // Limit to 2 sorts
+            if (sortConfig.sorts.length >= 2) {
+                alert('Maximum 2 sorts allowed');
+                return;
+            }
+            
+            sortConfig.sorts.push({
+                column: column,
+                direction: 'asc',
+                type: getColumnType(column)
+            });
+            
+            select.value = '';
+            updateSortUI();
+            updateSmartView();
+        }
+
+        function removeSort(index) {
+            sortConfig.sorts.splice(index, 1);
+            updateSortUI();
+            updateSmartView();
+        }
+
+        function toggleSortDirection(index) {
+            const sort = sortConfig.sorts[index];
+            sort.direction = sort.direction === 'asc' ? 'desc' : 'asc';
+            updateSortUI();
+            updateSmartView();
+        }
+
+        function clearAllSorts() {
+            sortConfig.sorts = [];
+            updateSortUI();
+            updateSmartView();
+        }
+
+        function updateSortUI() {
+            // Update sort panel
+            const sortsList = document.getElementById('sortsList');
+            
+            if (sortConfig.sorts.length === 0) {
+                sortsList.innerHTML = '<div class="no-sorts">Click column headers to sort, or use the controls below</div>';
+            } else {
+                sortsList.innerHTML = sortConfig.sorts.map((sort, index) => `
+                    <div class="sort-item">
+                        <div class="sort-priority">${index + 1}</div>
+                        <div class="sort-column">${getColumnDisplayName(sort.column)}</div>
+                        <div class="sort-direction">
+                            <span class="material-icons" style="font-size: 16px;">
+                                ${sort.direction === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                            </span>
+                            ${sort.direction === 'asc' ? 'A → Z' : 'Z → A'}
+                            ${sort.type === 'date' ? (sort.direction === 'asc' ? ' (Oldest first)' : ' (Newest first)') : ''}
+                            ${sort.type === 'number' ? (sort.direction === 'asc' ? ' (Low → High)' : ' (High → Low)') : ''}
+                        </div>
+                        <div class="sort-actions">
+                            <button onclick="toggleSortDirection(${index})" title="Toggle direction">
+                                <span class="material-icons" style="font-size: 16px;">swap_vert</span>
+                            </button>
+                            <button onclick="removeSort(${index})" title="Remove sort">
+                                <span class="material-icons" style="font-size: 16px;">close</span>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            // Update table headers
+            document.querySelectorAll('.sortable-header').forEach(header => {
+                const column = header.dataset.column;
+                const sortIndex = sortConfig.sorts.findIndex(sort => sort.column === column);
+                const indicator = header.querySelector('.sort-indicator');
+                const arrow = header.querySelector('.sort-arrow');
+                const priorityBadge = header.querySelector('.sort-priority-badge');
+                
+                if (!indicator || !arrow || !priorityBadge) {
+                    console.log('Missing elements for column:', column);
+                    return;
+                }
+                
+                // Reset classes and elements
+                header.classList.remove('sorted', 'sorted-primary', 'sorted-secondary');
+                indicator.classList.remove('asc', 'desc', 'neutral');
+                arrow.classList.remove('asc', 'desc', 'neutral');
+                priorityBadge.classList.remove('show');
+                priorityBadge.textContent = '';
+                
+                if (sortIndex !== -1) {
+                    const sort = sortConfig.sorts[sortIndex];
+                    header.classList.add('sorted');
+                    header.classList.add(sortIndex === 0 ? 'sorted-primary' : 'sorted-secondary');
+                    indicator.classList.add(sort.direction);
+                    arrow.classList.add(sort.direction);
+                    
+                    // Show priority badge with number
+                    priorityBadge.classList.add('show');
+                    priorityBadge.textContent = (sortIndex + 1).toString();
+                    
+                    console.log(`Updated sort for ${column}: direction=${sort.direction}, priority=${sortIndex + 1}`);
+                } else {
+                    indicator.classList.add('neutral');
+                    arrow.classList.add('neutral');
+                }
+            });
+        }
+
+        function applySorting(data) {
+            if (sortConfig.sorts.length === 0) return data;
+            
+            return [...data].sort((a, b) => {
+                for (const sort of sortConfig.sorts) {
+                    let aVal = getItemValue(a, sort.column);
+                    let bVal = getItemValue(b, sort.column);
+                    
+                    // Handle null/undefined values
+                    if (aVal == null && bVal == null) continue;
+                    if (aVal == null) return 1;
+                    if (bVal == null) return -1;
+                    
+                    let comparison = 0;
+                    
+                    if (sort.type === 'date') {
+                        const aDate = new Date(aVal);
+                        const bDate = new Date(bVal);
+                        comparison = aDate.getTime() - bDate.getTime();
+                    } else if (sort.type === 'number') {
+                        comparison = parseFloat(aVal) - parseFloat(bVal);
+                    } else {
+                        // Text comparison
+                        const aStr = String(aVal).toLowerCase();
+                        const bStr = String(bVal).toLowerCase();
+                        comparison = aStr.localeCompare(bStr);
+                    }
+                    
+                    if (comparison !== 0) {
+                        return sort.direction === 'asc' ? comparison : -comparison;
+                    }
+                }
+                return 0;
+            });
+        }
+
+        function getItemValue(item, column) {
+            switch (column) {
+                case 'type':
+                    return item.type;
+                case 'name':
+                    return item.name;
+                case 'status':
+                    return item.status;
+                case 'workflow_type':
+                    return item.workflow_type || '';
+                case 'task_type':
+                    return item.task_type || '';
+                case 'started_at':
+                    return item.started_at;
+                case 'duration_seconds':
+                    return item.duration_seconds || 0;
+                case 'namespace':
+                    return item.namespace || '';
+                default:
+                    return '';
+            }
+        }
+
         // Close dropdowns when clicking outside
         document.addEventListener('click', function(event) {
             if (!event.target.closest('.multi-select-container')) {
@@ -1926,12 +2395,18 @@
             // Show/hide chart controls
             document.getElementById('chartControls').style.display = view === 'chart' ? 'block' : 'none';
             
+            // Show/hide sort controls - only visible for table view
+            document.getElementById('sortControls').style.display = view === 'table' ? 'block' : 'none';
+            
             updateSmartView();
         }
 
         // Update smart view based on filters
         function updateSmartView() {
-            const filteredData = applySmartFilters();
+            let filteredData = applySmartFilters();
+            
+            // Apply sorting
+            filteredData = applySorting(filteredData);
             
             // Update the filtered stats
             updateFilteredStats(filteredData);
@@ -2032,14 +2507,78 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Type</th>
-                            <th>Name</th>
-                            <th>Status</th>
-                            <th>Workflow Type</th>
-                            <th>Task Type</th>
-                            <th>Started</th>
-                            <th>Duration</th>
-                            <th>Namespace</th>
+                            <th class="sortable-header" onclick="handleHeaderClick('type')" data-column="type">
+                                <div class="header-content">
+                                    <span>Type</span>
+                                    <div class="sort-indicator">
+                                        <span class="sort-arrow"></span>
+                                        <span class="sort-priority-badge"></span>
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="sortable-header" onclick="handleHeaderClick('name')" data-column="name">
+                                <div class="header-content">
+                                    <span>Name</span>
+                                    <div class="sort-indicator">
+                                        <span class="sort-arrow"></span>
+                                        <span class="sort-priority-badge"></span>
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="sortable-header" onclick="handleHeaderClick('status')" data-column="status">
+                                <div class="header-content">
+                                    <span>Status</span>
+                                    <div class="sort-indicator">
+                                        <span class="sort-arrow"></span>
+                                        <span class="sort-priority-badge"></span>
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="sortable-header" onclick="handleHeaderClick('workflow_type')" data-column="workflow_type">
+                                <div class="header-content">
+                                    <span>Workflow Type</span>
+                                    <div class="sort-indicator">
+                                        <span class="sort-arrow"></span>
+                                        <span class="sort-priority-badge"></span>
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="sortable-header" onclick="handleHeaderClick('task_type')" data-column="task_type">
+                                <div class="header-content">
+                                    <span>Task Type</span>
+                                    <div class="sort-indicator">
+                                        <span class="sort-arrow"></span>
+                                        <span class="sort-priority-badge"></span>
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="sortable-header" onclick="handleHeaderClick('started_at')" data-column="started_at">
+                                <div class="header-content">
+                                    <span>Started</span>
+                                    <div class="sort-indicator">
+                                        <span class="sort-arrow"></span>
+                                        <span class="sort-priority-badge"></span>
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="sortable-header" onclick="handleHeaderClick('duration_seconds')" data-column="duration_seconds">
+                                <div class="header-content">
+                                    <span>Duration</span>
+                                    <div class="sort-indicator">
+                                        <span class="sort-arrow"></span>
+                                        <span class="sort-priority-badge"></span>
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="sortable-header" onclick="handleHeaderClick('namespace')" data-column="namespace">
+                                <div class="header-content">
+                                    <span>Namespace</span>
+                                    <div class="sort-indicator">
+                                        <span class="sort-arrow"></span>
+                                        <span class="sort-priority-badge"></span>
+                                    </div>
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2065,6 +2604,9 @@
             `;
 
             tableView.innerHTML = tableHTML;
+            
+            // Update sort UI after table is rendered
+            setTimeout(() => updateSortUI(), 0);
         }
 
         // Update smart chart - now shows individual executions as bar chart over time
@@ -2337,6 +2879,9 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Ensure initial view state is correct
             switchView('chart');
+            
+            // Initialize sort UI
+            updateSortUI();
             
             // Run initial connection test and data load
             setTimeout(() => {
