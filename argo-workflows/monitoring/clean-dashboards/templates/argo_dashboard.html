@@ -1108,7 +1108,13 @@
 
         // Update smart chart - now shows individual executions as bar chart over time
         function updateSmartChart(filteredData) {
+            const chartContainer = document.getElementById('smartChartView');
             const ctx = document.getElementById('smartChart').getContext('2d');
+            
+            // Ensure chart container is visible before creating chart
+            if (currentView === 'chart' && chartContainer.style.display === 'none') {
+                chartContainer.style.display = 'block';
+            }
             
             if (smartChart) {
                 smartChart.destroy();
@@ -1249,10 +1255,12 @@
                 }
             });
 
-            smartChart = new Chart(ctx, {
-                type: 'bar',
-                data: { datasets },
-                options: {
+            // Add a small delay to ensure canvas is properly sized
+            setTimeout(() => {
+                smartChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { datasets },
+                    options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: {
@@ -1335,6 +1343,7 @@
                     }
                 }
             });
+            }, 10); // Small delay to ensure canvas is properly rendered
         }
 
         // Refresh all data
@@ -1354,6 +1363,8 @@
 
         // Initial load
         document.addEventListener('DOMContentLoaded', () => {
+            // Ensure initial view state is correct
+            switchView('chart');
             refreshAllData();
         });
 
