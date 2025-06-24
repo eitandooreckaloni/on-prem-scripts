@@ -3,11 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Workflows & Tasks Analysis</title>
+    <title>Sinai Workflows Dashboard - Powered by Argo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script>
     <style>
+        :root {
+            --argo-blue: #326CE5;
+            --argo-blue-dark: #1557CC;
+            --argo-blue-light: #4285F4;
+            --argo-blue-bg: #E8F0FE;
+            --argo-green: #34A853;
+            --argo-green-bg: #E6F4EA;
+            --argo-red: #EA4335;
+            --argo-red-bg: #FCE8E6;
+            --argo-orange: #FBBC04;
+            --argo-orange-bg: #FEF7E0;
+            --argo-gray-50: #FAFBFC;
+            --argo-gray-100: #F1F3F4;
+            --argo-gray-200: #E8EAED;
+            --argo-gray-300: #DADCE0;
+            --argo-gray-400: #BDC1C6;
+            --argo-gray-500: #9AA0A6;
+            --argo-gray-600: #80868B;
+            --argo-gray-700: #5F6368;
+            --argo-gray-800: #3C4043;
+            --argo-gray-900: #202124;
+            --surface-1: #FFFFFF;
+            --surface-2: var(--argo-gray-50);
+            --surface-3: var(--argo-gray-100);
+            --border-color: var(--argo-gray-200);
+            --text-primary: var(--argo-gray-900);
+            --text-secondary: var(--argo-gray-700);
+            --text-tertiary: var(--argo-gray-500);
+            --shadow-sm: 0 1px 2px 0 rgba(60, 64, 67, 0.1), 0 1px 3px 1px rgba(60, 64, 67, 0.05);
+            --shadow-md: 0 1px 2px 0 rgba(60, 64, 67, 0.15), 0 2px 6px 2px rgba(60, 64, 67, 0.08);
+            --shadow-lg: 0 2px 4px -2px rgba(60, 64, 67, 0.16), 0 4px 8px -2px rgba(60, 64, 67, 0.1);
+            --border-radius: 8px;
+            --border-radius-lg: 12px;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -15,366 +52,685 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f8f9fa;
-            color: #333;
-            line-height: 1.6;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--surface-2);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        .header {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        /* Argo-style Navigation Bar */
+        .navbar {
+            background: var(--surface-1);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .navbar-content {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .argo-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--argo-blue) 0%, var(--argo-blue-light) 100%);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: white;
-            padding: 2rem;
-            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            position: relative;
         }
 
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .header p {
+        .argo-logo::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: white;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
             opacity: 0.9;
-            font-size: 1.1rem;
+        }
+
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+
+        .brand-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .brand-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .navbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: var(--border-radius);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .status-indicator.connected {
+            background: var(--argo-green-bg);
+            color: var(--argo-green);
+        }
+
+        .status-indicator.disconnected {
+            background: var(--argo-red-bg);
+            color: var(--argo-red);
+        }
+
+        .status-indicator.pending {
+            background: var(--argo-orange-bg);
+            color: var(--argo-orange);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1440px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 24px;
         }
 
-        .connection-test {
-            background: white;
-            border-radius: 10px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .connection-test h2 {
-            margin-bottom: 1rem;
-            color: #333;
-        }
-
+        /* Argo-style Buttons */
         .btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: 1px solid transparent;
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.4;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: background 0.3s ease;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            white-space: nowrap;
+            user-select: none;
+            outline: none;
         }
 
-        .btn:hover {
-            background: #0056b3;
+        .btn:focus-visible {
+            outline: 2px solid var(--argo-blue);
+            outline-offset: 2px;
+        }
+
+        .btn-primary {
+            background: var(--argo-blue);
+            color: white;
+            border-color: var(--argo-blue);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--argo-blue-dark);
+            border-color: var(--argo-blue-dark);
+        }
+
+        .btn-secondary {
+            background: var(--surface-1);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--surface-3);
+            border-color: var(--argo-gray-300);
+        }
+
+        .btn-success {
+            background: var(--argo-green);
+            color: white;
+            border-color: var(--argo-green);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #2E7D4F;
+            border-color: #2E7D4F;
         }
 
         .btn:disabled {
-            background: #6c757d;
+            opacity: 0.6;
             cursor: not-allowed;
+            pointer-events: none;
         }
 
-        .connection-status {
-            margin-top: 1rem;
-            padding: 1rem;
-            border-radius: 6px;
+        .btn-icon {
+            padding: 8px;
+            min-width: 40px;
+            justify-content: center;
+        }
+
+        /* Argo-style Cards and Surfaces */
+        .card {
+            background: var(--surface-1);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--surface-2);
+            display: flex;
+            align-items: center;
+            justify-content: between;
+            gap: 12px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+            flex: 1;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        .card-actions {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            background: var(--surface-2);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* Status and Alert Styles */
+        .alert {
+            padding: 12px 16px;
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            font-weight: 500;
+            margin: 16px 0;
             display: none;
         }
 
-        .status-success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
+        .alert.show {
+            display: block;
         }
 
-        .status-error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
+        .alert-success {
+            background: var(--argo-green-bg);
+            color: var(--argo-green);
+            border: 1px solid rgba(52, 168, 83, 0.2);
         }
 
-        .status-loading {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
+        .alert-danger {
+            background: var(--argo-red-bg);
+            color: var(--argo-red);
+            border: 1px solid rgba(234, 67, 53, 0.2);
         }
 
+        .alert-warning {
+            background: var(--argo-orange-bg);
+            color: #F29900;
+            border: 1px solid rgba(251, 188, 4, 0.2);
+        }
+
+        .alert-info {
+            background: var(--argo-blue-bg);
+            color: var(--argo-blue);
+            border: 1px solid rgba(50, 108, 229, 0.2);
+        }
+
+        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
         }
 
         .stat-card {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 1rem;
+            background: var(--surface-1);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 20px 16px;
             text-align: center;
-            border-left: 3px solid #e9ecef;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--argo-gray-300);
+            transition: background 0.2s ease;
         }
 
         .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
         }
 
+        .stat-card.success::before { background: var(--argo-green); }
+        .stat-card.danger::before { background: var(--argo-red); }
+        .stat-card.warning::before { background: var(--argo-orange); }
+        .stat-card.info::before { background: var(--argo-blue); }
+
         .stat-number {
-            font-size: 1.8rem;
-            font-weight: bold;
-            margin-bottom: 0.3rem;
+            font-size: 28px;
+            font-weight: 700;
             line-height: 1;
+            margin-bottom: 4px;
+            color: var(--text-primary);
         }
 
         .stat-label {
-            color: #6c757d;
-            font-size: 0.75rem;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            font-weight: 600;
         }
 
-        .stat-success { color: #28a745; }
-        .stat-danger { color: #dc3545; }
-        .stat-warning { color: #ffc107; }
-        .stat-info { color: #17a2b8; }
+        .stat-icon {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 24px;
+            height: 24px;
+            opacity: 0.3;
+            color: var(--text-tertiary);
+        }
 
-        .workflows-section {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        /* Argo-style Tables */
+        .table-container {
+            background: var(--surface-1);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
             overflow: hidden;
         }
 
-        .section-header {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-bottom: 1px solid #dee2e6;
+        .table-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--surface-2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        .section-header h2 {
+        .table-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
             margin: 0;
         }
 
-        .workflows-table {
+        .data-table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 14px;
         }
 
-        .workflows-table th,
-        .workflows-table td {
-            padding: 1rem;
+        .data-table th,
+        .data-table td {
+            padding: 12px 16px;
             text-align: left;
-            border-bottom: 1px solid #dee2e6;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .workflows-table th {
-            background: #f8f9fa;
+        .data-table th {
+            background: var(--surface-2);
             font-weight: 600;
-            color: #495057;
+            color: var(--text-secondary);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             position: sticky;
             top: 0;
-            z-index: 5;
-            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
+            z-index: 10;
         }
 
-        .workflows-table tr:hover {
-            background: #f8f9fa;
+        .data-table th:first-child {
+            padding-left: 24px;
         }
 
+        .data-table td:first-child {
+            padding-left: 24px;
+        }
+
+        .data-table tbody tr {
+            transition: background-color 0.15s ease;
+        }
+
+        .data-table tbody tr:hover {
+            background: var(--surface-2);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Argo-style Status Badges */
         .status-badge {
-            padding: 0.4rem 0.8rem;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
             text-transform: uppercase;
-            display: inline-block;
-            line-height: 1.3;
-            text-align: left;
-            overflow-wrap: break-word;
-            word-wrap: break-word;
-            white-space: normal;
-            max-width: 140px;
-            min-width: 80px;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .status-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            flex-shrink: 0;
         }
 
         .status-succeeded {
-            background: #d4edda;
-            color: #155724;
+            background: var(--argo-green-bg);
+            color: var(--argo-green);
         }
 
         .status-failed {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--argo-red-bg);
+            color: var(--argo-red);
         }
 
         .status-running {
-            background: #d1ecf1;
-            color: #0c5460;
+            background: var(--argo-blue-bg);
+            color: var(--argo-blue);
+        }
+
+        .status-pending {
+            background: var(--argo-orange-bg);
+            color: #F29900;
         }
 
         .status-unknown {
-            background: #e2e3e5;
-            color: #383d41;
+            background: var(--argo-gray-100);
+            color: var(--text-secondary);
         }
 
         .status-deleted {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px dashed #bee5eb;
+            background: var(--argo-gray-100);
+            color: var(--text-tertiary);
+            border: 1px dashed var(--border-color);
+        }
+
+        .status-deleted::before {
+            background: var(--text-tertiary);
         }
 
         .deleted-row {
-            opacity: 0.5;
-            font-style: italic;
-            color: #6c757d !important;
+            opacity: 0.6;
+            color: var(--text-tertiary) !important;
         }
         
         .deleted-row td {
-            color: #6c757d !important;
+            color: var(--text-tertiary) !important;
         }
 
-        .refresh-btn {
-            background: #28a745;
-            margin-left: 1rem;
-        }
-
-        .refresh-btn:hover {
-            background: #218838;
-        }
-
+        /* Loading and Empty States */
         .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #6c757d;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+            color: var(--text-secondary);
+            font-size: 14px;
         }
 
-        .error-message {
-            text-align: center;
-            padding: 2rem;
-            color: #dc3545;
-            background: #f8d7da;
-            border-radius: 6px;
-            margin: 1rem 0;
+        .loading::before {
+            content: '';
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--argo-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
         }
 
-        .chart-section {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            width: 48px;
+            height: 48px;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+        }
+
+        .empty-state-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .empty-state-description {
+            font-size: 14px;
+            color: var(--text-secondary);
+            max-width: 320px;
+        }
+
+        /* Argo-style Form Controls */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            background: var(--surface-1);
+            color: var(--text-primary);
+            transition: all 0.15s ease;
+            outline: none;
+        }
+
+        .form-control:focus {
+            border-color: var(--argo-blue);
+            box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.1);
+        }
+
+        .form-control:disabled {
+            background: var(--surface-3);
+            color: var(--text-tertiary);
+            cursor: not-allowed;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            margin: 0;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        /* Filters and Controls Panel */
+        .filters-panel {
+            background: var(--surface-1);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+            margin-bottom: 24px;
             overflow: hidden;
         }
 
-        .chart-controls {
-            padding: 1.5rem;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .filter-group {
+        .filters-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--surface-2);
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            justify-content: space-between;
         }
 
-        .filter-group label {
+        .filters-title {
+            font-size: 16px;
             font-weight: 600;
-            color: #495057;
-        }
-
-        .filter-checkboxes {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-
-        .checkbox-item input[type="checkbox"] {
+            color: var(--text-primary);
             margin: 0;
         }
 
+        .filters-content {
+            padding: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            align-items: start;
+        }
+
         .chart-container {
-            padding: 2rem;
+            padding: 24px;
             height: 400px;
             position: relative;
         }
 
-        .smart-table-section {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+        .main-section {
+            background: var(--surface-1);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+            margin-bottom: 24px;
             overflow: hidden;
         }
 
-        .smart-controls {
-            padding: 1.5rem;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            align-items: start;
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .control-group label {
-            font-weight: 600;
-            color: #495057;
-            font-size: 0.9rem;
-        }
-
-        .control-group select, .control-group input {
-            padding: 0.5rem;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
-
+        /* Argo-style Multi-Select Dropdown */
         .multi-select-container {
             position: relative;
         }
 
         .multi-select-header {
-            padding: 0.5rem;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            background: white;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: var(--surface-1);
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 14px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             min-height: 38px;
+            transition: all 0.15s ease;
+            outline: none;
         }
 
         .multi-select-header:hover {
-            border-color: #007bff;
+            border-color: var(--argo-blue);
         }
 
         .multi-select-header.active {
-            border-color: #007bff;
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            border-color: var(--argo-blue);
+            box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.1);
+        }
+
+        .multi-select-display {
+            color: var(--text-primary);
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .multi-select-arrow {
+            color: var(--text-tertiary);
+            font-size: 12px;
+            transition: transform 0.15s ease;
+        }
+
+        .multi-select-header.active .multi-select-arrow {
+            transform: rotate(180deg);
         }
 
         .multi-select-dropdown {
@@ -382,218 +738,289 @@
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
-            border: 1px solid #ced4da;
+            background: var(--surface-1);
+            border: 1px solid var(--border-color);
             border-top: none;
-            border-radius: 0 0 4px 4px;
-            max-height: 200px;
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+            max-height: 240px;
             overflow-y: auto;
             z-index: 1000;
             display: none;
+            box-shadow: var(--shadow-md);
         }
 
         .multi-select-dropdown.show {
             display: block;
         }
 
-        .multi-select-option {
-            padding: 0.5rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            border-bottom: 1px solid #f8f9fa;
-            user-select: none;
-        }
-
-        .multi-select-option:hover {
-            background: #f8f9fa;
-        }
-
-        .multi-select-option input[type="checkbox"] {
-            margin: 0;
-            pointer-events: none; /* Prevent direct clicking on checkbox */
-        }
-
-        .multi-select-option label {
-            cursor: pointer;
-            flex: 1;
-            pointer-events: none; /* Prevent direct clicking on label */
-        }
-
         .multi-select-actions {
-            padding: 0.5rem;
-            border-bottom: 1px solid #dee2e6;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
-            gap: 0.5rem;
+            gap: 8px;
+            background: var(--surface-2);
         }
 
         .multi-select-actions button {
-            padding: 0.25rem 0.5rem;
-            border: 1px solid #dee2e6;
-            background: white;
-            border-radius: 3px;
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            background: var(--surface-1);
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 0.75rem;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.15s ease;
         }
 
         .multi-select-actions button:hover {
-            background: #f8f9fa;
+            background: var(--surface-3);
+            color: var(--text-primary);
+        }
+
+        .multi-select-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--surface-2);
+            user-select: none;
+            transition: background-color 0.15s ease;
+        }
+
+        .multi-select-option:hover {
+            background: var(--surface-2);
+        }
+
+        .multi-select-option:last-child {
+            border-bottom: none;
+        }
+
+        .multi-select-option-checkbox {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            cursor: pointer;
+            pointer-events: none;
+        }
+
+        .multi-select-option-label {
+            flex: 1;
+            color: var(--text-primary);
+            cursor: pointer;
+            pointer-events: none;
         }
 
         .selected-count {
-            color: #007bff;
+            color: var(--argo-blue);
             font-weight: 600;
         }
 
-        .filter-indicator {
-            background: #007bff;
+        .filter-badge {
+            background: var(--argo-blue);
             color: white;
             border-radius: 10px;
-            padding: 0.1rem 0.4rem;
-            font-size: 0.7rem;
+            padding: 2px 8px;
+            font-size: 11px;
             font-weight: 600;
+            margin-left: 4px;
         }
 
-        .view-toggle {
+        /* Argo-style Toggle Buttons */
+        .toggle-group {
             display: flex;
-            gap: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            overflow: hidden;
         }
 
-        .view-toggle button {
-            padding: 0.5rem 1rem;
-            border: 1px solid #dee2e6;
-            background: white;
-            border-radius: 4px;
+        .toggle-button {
+            padding: 8px 16px;
+            border: none;
+            background: var(--surface-1);
+            color: var(--text-secondary);
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            border-right: 1px solid var(--border-color);
         }
 
-        .view-toggle button.active {
-            background: #007bff;
+        .toggle-button:last-child {
+            border-right: none;
+        }
+
+        .toggle-button:hover {
+            background: var(--surface-2);
+            color: var(--text-primary);
+        }
+
+        .toggle-button.active {
+            background: var(--argo-blue);
             color: white;
-            border-color: #007bff;
         }
 
-        .smart-table-container {
-            max-height: 65vh;
+        .table-wrapper {
+            max-height: 600px;
             overflow-y: auto;
-            min-height: 400px;
-        }
-
-        .smart-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-
-        .smart-table th,
-        .smart-table td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        .smart-table th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #495057;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .smart-table tr:hover {
-            background: #f8f9fa;
+            border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
         }
 
         .task-row {
-            background: #f9f9f9;
+            background: var(--surface-2);
         }
 
         .task-row td:first-child {
-            padding-left: 2rem;
-            font-style: italic;
+            padding-left: 40px;
+            position: relative;
         }
 
+        .task-row td:first-child::before {
+            content: '';
+            position: absolute;
+            left: 28px;
+            top: 50%;
+            width: 8px;
+            height: 2px;
+            background: var(--border-color);
+            transform: translateY(-50%);
+        }
+
+        /* Type badges */
         .type-badge {
-            padding: 0.2rem 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
             border-radius: 12px;
-            font-size: 0.8rem;
+            font-size: 11px;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .type-workflow {
-            background: #e3f2fd;
-            color: #1976d2;
+            background: var(--argo-blue-bg);
+            color: var(--argo-blue);
         }
 
         .type-task {
-            background: #f3e5f5;
-            color: #7b1fa2;
+            background: var(--argo-orange-bg);
+            color: #F29900;
         }
 
-        .smart-chart-container {
-            padding: 2rem;
-            height: 60vh;
-            min-height: 450px;
+        .chart-wrapper {
+            padding: 24px;
+            height: 500px;
             position: relative;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .navbar-content {
+                padding: 0 16px;
+            }
+            
+            .container {
+                padding: 16px;
+            }
+            
+            .filters-content {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 12px;
+            }
+            
+            .brand-text {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🔍 Smart Workflows & Tasks Analysis</h1>
-        <p>Advanced filtering and performance analysis of workflows and individual tasks</p>
-    </div>
+    <!-- Argo-style Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="#" class="navbar-brand">
+                <div class="argo-logo"></div>
+                <div class="brand-text">
+                    <div class="brand-title">Sinai Workflows</div>
+                    <div class="brand-subtitle">Powered by Argo</div>
+                </div>
+            </a>
+            <div class="navbar-actions">
+                <div id="connectionIndicator" class="status-indicator pending">
+                    <div class="status-dot"></div>
+                    <span>Checking...</span>
+                </div>
+                <button id="testConnection" class="btn btn-secondary btn-icon" title="Test Connection">
+                    <span class="material-icons" style="font-size: 18px;">wifi_protected_setup</span>
+                </button>
+                <button id="refreshData" class="btn btn-primary btn-icon" title="Refresh Data">
+                    <span class="material-icons" style="font-size: 18px;">refresh</span>
+                </button>
+            </div>
+        </div>
+    </nav>
 
     <div class="container">
-        <!-- Compact Header Section -->
-        <div class="header-controls" style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem; margin-bottom: 2rem; background: white; border-radius: 10px; padding: 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); align-items: start;">
-            <!-- Connection Test - Compact -->
-            <div class="connection-test-compact">
-                <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: #495057;">🔗 Connection</h3>
-                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-                    <button id="testConnection" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Test</button>
-                    <button id="refreshData" class="btn refresh-btn" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Refresh</button>
-                </div>
-                <div id="connectionStatus" class="connection-status" style="font-size: 0.85rem;"></div>
+        <!-- Connection Status Alert -->
+        <div id="connectionAlert" class="alert"></div>
+
+        <!-- Statistics Overview -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span class="material-icons" style="font-size: 20px; margin-right: 8px; vertical-align: text-bottom;">dashboard</span>
+                    Overview
+                </h2>
             </div>
-            
-            <!-- Filtered Results Statistics -->
-            <div class="filtered-stats-section">
-                <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; color: #495057;">📊 Filtered Results</h3>
-                <div class="stats-grid-compact" id="filteredStatsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem;">
+            <div class="card-content">
+                <div class="stats-grid" id="filteredStatsGrid">
                     <!-- Filtered stats will be loaded here -->
                 </div>
             </div>
         </div>
 
-        <!-- Main Analysis Section -->
-        <div class="smart-table-section" style="margin-bottom: 2rem; min-height: 70vh;">
-            <div class="smart-controls">
-                <div class="control-group">
-                    <label>View Type:</label>
-                    <div class="view-toggle">
-                        <button id="chartViewBtn" class="active" onclick="switchView('chart')">Performance Chart</button>
-                        <button id="tableViewBtn" onclick="switchView('table')">Table View</button>
-                    </div>
+        <!-- Filters Panel -->
+        <div class="filters-panel">
+            <div class="filters-header">
+                <h3 class="filters-title">
+                    <span class="material-icons" style="font-size: 18px; margin-right: 8px; vertical-align: text-bottom;">tune</span>
+                    Filters & Controls
+                </h3>
+                <div class="toggle-group">
+                    <button id="chartViewBtn" class="toggle-button active" onclick="switchView('chart')">
+                        <span class="material-icons" style="font-size: 16px; margin-right: 4px;">analytics</span>
+                        Chart
+                    </button>
+                    <button id="tableViewBtn" class="toggle-button" onclick="switchView('table')">
+                        <span class="material-icons" style="font-size: 16px; margin-right: 4px;">table_view</span>
+                        Table
+                    </button>
                 </div>
-                <div class="control-group">
-                    <label>Show:</label>
-                    <select id="itemTypeFilter" onchange="updateSmartView()">
+            </div>
+            <div class="filters-content">
+                <div class="form-group">
+                    <label class="form-label">Show Items</label>
+                    <select id="itemTypeFilter" class="form-control" onchange="updateSmartView()">
                         <option value="all">All Items</option>
                         <option value="workflows">Workflows Only</option>
                         <option value="tasks">Tasks Only</option>
                     </select>
                 </div>
-                <div class="control-group">
-                    <label>Workflow Type:</label>
+                <div class="form-group">
+                    <label class="form-label">Workflow Type</label>
                     <div class="multi-select-container">
                         <div class="multi-select-header" onclick="toggleMultiSelect('workflowType')">
-                            <span id="workflowTypeDisplay">All Types</span>
-                            <span>▼</span>
+                            <span id="workflowTypeDisplay" class="multi-select-display">All Types</span>
+                            <span class="multi-select-arrow">▼</span>
                         </div>
                         <div id="workflowTypeDropdown" class="multi-select-dropdown">
                             <div class="multi-select-actions">
@@ -606,12 +1033,12 @@
                         </div>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label>Task Type:</label>
+                <div class="form-group">
+                    <label class="form-label">Task Type</label>
                     <div class="multi-select-container">
                         <div class="multi-select-header" onclick="toggleMultiSelect('taskType')">
-                            <span id="taskTypeDisplay">All Tasks</span>
-                            <span>▼</span>
+                            <span id="taskTypeDisplay" class="multi-select-display">All Tasks</span>
+                            <span class="multi-select-arrow">▼</span>
                         </div>
                         <div id="taskTypeDropdown" class="multi-select-dropdown">
                             <div class="multi-select-actions">
@@ -624,12 +1051,12 @@
                         </div>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label>Status:</label>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
                     <div class="multi-select-container">
                         <div class="multi-select-header" onclick="toggleMultiSelect('status')">
-                            <span id="statusDisplay">All Statuses</span>
-                            <span>▼</span>
+                            <span id="statusDisplay" class="multi-select-display">All Statuses</span>
+                            <span class="multi-select-arrow">▼</span>
                         </div>
                         <div id="statusDropdown" class="multi-select-dropdown">
                             <div class="multi-select-actions">
@@ -638,31 +1065,31 @@
                             </div>
                             <div id="statusOptions">
                                 <div class="multi-select-option" onclick="toggleFilterOption('status', 'Succeeded')">
-                                    <input type="checkbox" id="status_Succeeded" value="Succeeded">
-                                    <label for="status_Succeeded">Succeeded</label>
+                                    <input type="checkbox" class="multi-select-option-checkbox" id="status_Succeeded" value="Succeeded">
+                                    <span class="multi-select-option-label">Succeeded</span>
                                 </div>
                                 <div class="multi-select-option" onclick="toggleFilterOption('status', 'Failed')">
-                                    <input type="checkbox" id="status_Failed" value="Failed">
-                                    <label for="status_Failed">Failed</label>
+                                    <input type="checkbox" class="multi-select-option-checkbox" id="status_Failed" value="Failed">
+                                    <span class="multi-select-option-label">Failed</span>
                                 </div>
                                 <div class="multi-select-option" onclick="toggleFilterOption('status', 'Running')">
-                                    <input type="checkbox" id="status_Running" value="Running">
-                                    <label for="status_Running">Running</label>
+                                    <input type="checkbox" class="multi-select-option-checkbox" id="status_Running" value="Running">
+                                    <span class="multi-select-option-label">Running</span>
                                 </div>
                                 <div class="multi-select-option" onclick="toggleFilterOption('status', 'deleted')">
-                                    <input type="checkbox" id="status_deleted" value="deleted">
-                                    <label for="status_deleted">Deleted</label>
+                                    <input type="checkbox" class="multi-select-option-checkbox" id="status_deleted" value="deleted">
+                                    <span class="multi-select-option-label">Deleted</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label>Namespace:</label>
+                <div class="form-group">
+                    <label class="form-label">Namespace</label>
                     <div class="multi-select-container">
                         <div class="multi-select-header" onclick="toggleMultiSelect('namespace')">
-                            <span id="namespaceDisplay">All Namespaces</span>
-                            <span>▼</span>
+                            <span id="namespaceDisplay" class="multi-select-display">All Namespaces</span>
+                            <span class="multi-select-arrow">▼</span>
                         </div>
                         <div id="namespaceDropdown" class="multi-select-dropdown">
                             <div class="multi-select-actions">
@@ -675,28 +1102,38 @@
                         </div>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label>Search:</label>
-                    <input type="text" id="searchFilter" placeholder="Search names..." onkeyup="updateSmartView()">
+                <div class="form-group">
+                    <label class="form-label">Search Names</label>
+                    <input type="text" id="searchFilter" class="form-control" placeholder="Type to search..." onkeyup="updateSmartView()">
                 </div>
-                <div class="control-group" id="chartControls" style="display: none;">
-                    <label>Reference Lines:</label>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                        <label style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;">
+                <div class="form-group" id="chartControls" style="display: none;">
+                    <label class="form-label">Chart Options</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <label class="checkbox-group">
                             <input type="checkbox" id="showAverageLines" onchange="updateSmartView()">
-                            Average
+                            Show Average Lines
                         </label>
-                        <label style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;">
+                        <label class="checkbox-group">
                             <input type="checkbox" id="showMedianLines" onchange="updateSmartView()">
-                            Median
+                            Show Median Lines
                         </label>
                     </div>
                 </div>
             </div>
-            <div id="smartTableView" class="smart-table-container">
-                <div class="loading">Loading smart analysis...</div>
+        </div>
+
+        <!-- Main Data Section -->
+        <div class="main-section">
+            <div class="table-header">
+                <h2 class="table-title">
+                    <span class="material-icons" style="font-size: 20px; margin-right: 8px; vertical-align: text-bottom;">account_tree</span>
+                    Workflows & Tasks Analysis
+                </h2>
             </div>
-            <div id="smartChartView" class="smart-chart-container" style="display: none;">
+            <div id="smartTableView" class="table-wrapper">
+                <div class="loading">Loading analysis data...</div>
+            </div>
+            <div id="smartChartView" class="chart-wrapper" style="display: none;">
                 <canvas id="smartChart"></canvas>
             </div>
         </div>
@@ -720,7 +1157,8 @@
         // DOM elements
         const testConnectionBtn = document.getElementById('testConnection');
         const refreshDataBtn = document.getElementById('refreshData');
-        const connectionStatus = document.getElementById('connectionStatus');
+        const connectionIndicator = document.getElementById('connectionIndicator');
+        const connectionAlert = document.getElementById('connectionAlert');
         const filteredStatsGrid = document.getElementById('filteredStatsGrid');
 
         // Event listeners
@@ -733,39 +1171,58 @@
 
             isLoading = true;
             testConnectionBtn.disabled = true;
-            testConnectionBtn.textContent = 'Testing...';
-
-            showConnectionStatus('loading', 'Testing connection to Argo Workflows...');
+            updateConnectionStatus('pending', 'Testing...');
+            showConnectionAlert('info', 'Testing connection to Argo Workflows...');
 
             try {
                 const response = await fetch('/api/test-connection');
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    showConnectionStatus('success', `✅ ${result.message}\nNamespace: ${result.namespace}`);
+                    updateConnectionStatus('connected', 'Connected');
+                    showConnectionAlert('success', `Successfully connected to Argo Workflows in namespace: ${result.namespace}`);
                 } else {
-                    showConnectionStatus('error', `❌ ${result.message}`);
+                    updateConnectionStatus('disconnected', 'Failed');
+                    showConnectionAlert('danger', `Connection failed: ${result.message}`);
                 }
             } catch (error) {
-                showConnectionStatus('error', `❌ Connection failed: ${error.message}`);
+                updateConnectionStatus('disconnected', 'Error');
+                showConnectionAlert('danger', `Connection error: ${error.message}`);
             }
 
             isLoading = false;
             testConnectionBtn.disabled = false;
-            testConnectionBtn.textContent = 'Test Connection';
         }
 
-        // Show connection status
-        function showConnectionStatus(type, message) {
-            connectionStatus.className = `connection-status status-${type}`;
-            connectionStatus.innerHTML = message.replace(/\n/g, '<br>');
-            connectionStatus.style.display = 'block';
+        // Update connection status indicator
+        function updateConnectionStatus(status, text) {
+            connectionIndicator.className = `status-indicator ${status}`;
+            connectionIndicator.querySelector('span').textContent = text;
+        }
+
+        // Show connection alert
+        function showConnectionAlert(type, message) {
+            connectionAlert.className = `alert alert-${type} show`;
+            connectionAlert.textContent = message;
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    connectionAlert.classList.remove('show');
+                }, 5000);
+            }
         }
 
         // Update filtered statistics based on current filter selection
         function updateFilteredStats(filteredData) {
             if (!filteredData || filteredData.length === 0) {
-                filteredStatsGrid.innerHTML = '<div class="loading">No data to display</div>';
+                filteredStatsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <span class="material-icons empty-state-icon">info</span>
+                        <div class="empty-state-title">No Data Available</div>
+                        <div class="empty-state-description">No items match your current filters or no data has been loaded yet.</div>
+                    </div>
+                `;
                 return;
             }
 
@@ -786,36 +1243,44 @@
                 : 0;
 
             filteredStatsGrid.innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-number stat-info">${total}</div>
+                <div class="stat-card info">
+                    <span class="material-icons stat-icon">article</span>
+                    <div class="stat-number">${total}</div>
                     <div class="stat-label">Total Items</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number stat-info">${workflows.length}</div>
+                <div class="stat-card info">
+                    <span class="material-icons stat-icon">account_tree</span>
+                    <div class="stat-number">${workflows.length}</div>
                     <div class="stat-label">Workflows</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number stat-info">${tasks.length}</div>
+                <div class="stat-card info">
+                    <span class="material-icons stat-icon">task</span>
+                    <div class="stat-number">${tasks.length}</div>
                     <div class="stat-label">Tasks</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number stat-success">${succeeded}</div>
+                <div class="stat-card success">
+                    <span class="material-icons stat-icon">check_circle</span>
+                    <div class="stat-number">${succeeded}</div>
                     <div class="stat-label">Succeeded</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number stat-danger">${failed}</div>
+                <div class="stat-card danger">
+                    <span class="material-icons stat-icon">error</span>
+                    <div class="stat-number">${failed}</div>
                     <div class="stat-label">Failed</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number stat-warning">${running}</div>
+                <div class="stat-card warning">
+                    <span class="material-icons stat-icon">play_circle</span>
+                    <div class="stat-number">${running}</div>
                     <div class="stat-label">Running</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number stat-info">${deleted}</div>
+                <div class="stat-card info">
+                    <span class="material-icons stat-icon">delete</span>
+                    <div class="stat-number">${deleted}</div>
                     <div class="stat-label">Deleted</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number stat-info">${avgDuration}s</div>
+                <div class="stat-card info">
+                    <span class="material-icons stat-icon">schedule</span>
+                    <div class="stat-number">${avgDuration}s</div>
                     <div class="stat-label">Avg Duration</div>
                 </div>
             `;
@@ -873,8 +1338,8 @@
                     optionDiv.className = 'multi-select-option';
                     optionDiv.onclick = () => toggleFilterOption('workflowType', type);
                     optionDiv.innerHTML = `
-                        <input type="checkbox" id="workflowType_${type}" value="${type}">
-                        <label for="workflowType_${type}">${type}</label>
+                        <input type="checkbox" class="multi-select-option-checkbox" id="workflowType_${type}" value="${type}">
+                        <span class="multi-select-option-label">${type}</span>
                     `;
                     workflowTypeOptions.appendChild(optionDiv);
                 });
@@ -890,8 +1355,8 @@
                     optionDiv.className = 'multi-select-option';
                     optionDiv.onclick = () => toggleFilterOption('taskType', type);
                     optionDiv.innerHTML = `
-                        <input type="checkbox" id="taskType_${type}" value="${type}">
-                        <label for="taskType_${type}">${type}</label>
+                        <input type="checkbox" class="multi-select-option-checkbox" id="taskType_${type}" value="${type}">
+                        <span class="multi-select-option-label">${type}</span>
                     `;
                     taskTypeOptions.appendChild(optionDiv);
                 });
@@ -919,8 +1384,8 @@
                 optionDiv.className = 'multi-select-option';
                 optionDiv.onclick = () => toggleFilterOption('namespace', namespace);
                 optionDiv.innerHTML = `
-                    <input type="checkbox" id="namespace_${namespace}" value="${namespace}">
-                    <label for="namespace_${namespace}">${namespace}</label>
+                    <input type="checkbox" class="multi-select-option-checkbox" id="namespace_${namespace}" value="${namespace}">
+                    <span class="multi-select-option-label">${namespace}</span>
                 `;
                 namespaceOptions.appendChild(optionDiv);
             });
@@ -1008,7 +1473,7 @@
             }
         });
 
-        // Switch between table, chart, and timeline view
+        // Switch between table and chart view
         function switchView(view) {
             currentView = view;
             
@@ -1102,12 +1567,18 @@
             const tableView = document.getElementById('smartTableView');
             
             if (filteredData.length === 0) {
-                tableView.innerHTML = '<div class="loading">No items match your filters</div>';
+                tableView.innerHTML = `
+                    <div class="empty-state">
+                        <span class="material-icons empty-state-icon">filter_list</span>
+                        <div class="empty-state-title">No Matching Items</div>
+                        <div class="empty-state-description">No workflows or tasks match your current filter criteria. Try adjusting your filters.</div>
+                    </div>
+                `;
                 return;
             }
 
             const tableHTML = `
-                <table class="smart-table">
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th>Type</th>
@@ -1118,7 +1589,7 @@
                             <th>Started</th>
                             <th>Duration</th>
                             <th>Namespace</th>
-                            <th>Workflow</th>
+                            <th>Parent Workflow</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1128,14 +1599,14 @@
                             if (item.is_deleted) rowClasses.push('deleted-row');
                             return `
                             <tr class="${rowClasses.join(' ')}">
-                                <td><span class="type-badge type-${item.type}">${item.type.toUpperCase()}</span></td>
+                                <td><span class="type-badge type-${item.type}">${item.type}</span></td>
                                 <td><strong>${item.name}</strong></td>
                                 <td><span class="status-badge ${getStatusClass(item.status)}">${item.status}</span></td>
                                 <td>${item.workflow_type || '-'}</td>
                                 <td>${item.task_type || '-'}</td>
                                 <td>${formatTimestamp(item.started_at)}</td>
                                 <td>${formatDuration(item.duration_seconds)}</td>
-                                <td>${item.namespace || '-'}</td>
+                                <td><code>${item.namespace || '-'}</code></td>
                                 <td>${item.workflow_name || item.name}</td>
                             </tr>
                             `;
@@ -1393,20 +1864,31 @@
 
             isLoading = true;
             refreshDataBtn.disabled = true;
-            refreshDataBtn.textContent = 'Refreshing...';
+            updateConnectionStatus('pending', 'Loading...');
 
-            await loadSmartData();
+            try {
+                await loadSmartData();
+                updateConnectionStatus('connected', 'Connected');
+            } catch (error) {
+                updateConnectionStatus('disconnected', 'Error');
+                showConnectionAlert('danger', `Failed to load data: ${error.message}`);
+            }
 
             isLoading = false;
             refreshDataBtn.disabled = false;
-            refreshDataBtn.textContent = 'Refresh Data';
         }
 
-        // Initial load
+        // Initial setup and data load
         document.addEventListener('DOMContentLoaded', () => {
             // Ensure initial view state is correct
             switchView('chart');
-            refreshAllData();
+            
+            // Run initial connection test and data load
+            setTimeout(() => {
+                testConnection().then(() => {
+                    refreshAllData();
+                });
+            }, 500);
         });
 
         // Auto-refresh every 30 seconds
