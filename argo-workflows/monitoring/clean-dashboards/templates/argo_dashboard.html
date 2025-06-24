@@ -650,6 +650,24 @@
                     </div>
                 </div>
                 <div class="control-group">
+                    <label>Namespace:</label>
+                    <div class="multi-select-container">
+                        <div class="multi-select-header" onclick="toggleMultiSelect('namespace')">
+                            <span id="namespaceDisplay">All Namespaces</span>
+                            <span>▼</span>
+                        </div>
+                        <div id="namespaceDropdown" class="multi-select-dropdown">
+                            <div class="multi-select-actions">
+                                <button onclick="selectAllFilter('namespace')">Select All</button>
+                                <button onclick="clearAllFilter('namespace')">Clear All</button>
+                            </div>
+                            <div id="namespaceOptions">
+                                <!-- Options will be populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-group">
                     <label>Search:</label>
                     <input type="text" id="searchFilter" placeholder="Search names..." onkeyup="updateSmartView()">
                 </div>
@@ -687,7 +705,8 @@
         let multiSelectFilters = {
             workflowType: [],
             taskType: [],
-            status: []
+            status: [],
+            namespace: []
         };
 
         // DOM elements
@@ -868,10 +887,38 @@
                 });
             }
 
+            // Populate namespaces
+            const namespaceOptions = document.getElementById('namespaceOptions');
+            namespaceOptions.innerHTML = '';
+            
+            // Collect unique namespaces from all items
+            const namespaces = new Set();
+            if (smartData.workflows) {
+                smartData.workflows.forEach(wf => {
+                    if (wf.namespace) namespaces.add(wf.namespace);
+                });
+            }
+            if (smartData.tasks) {
+                smartData.tasks.forEach(task => {
+                    if (task.namespace) namespaces.add(task.namespace);
+                });
+            }
+            
+            Array.from(namespaces).sort().forEach(namespace => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'multi-select-option';
+                optionDiv.innerHTML = `
+                    <input type="checkbox" id="namespace_${namespace}" value="${namespace}" onchange="updateMultiSelectFilter('namespace')">
+                    <label for="namespace_${namespace}">${namespace}</label>
+                `;
+                namespaceOptions.appendChild(optionDiv);
+            });
+
             // Update displays
             updateMultiSelectDisplay('workflowType');
             updateMultiSelectDisplay('taskType');
             updateMultiSelectDisplay('status');
+            updateMultiSelectDisplay('namespace');
         }
 
         // Multi-select functions
@@ -911,6 +958,7 @@
                 if (filterType === 'workflowType') defaultText = 'All Types';
                 else if (filterType === 'taskType') defaultText = 'All Tasks';
                 else if (filterType === 'status') defaultText = 'All Statuses';
+                else if (filterType === 'namespace') defaultText = 'All Namespaces';
                 display.innerHTML = defaultText;
             } else if (selected.length === 1) {
                 display.innerHTML = selected[0];
@@ -1018,6 +1066,11 @@
                     if (!matchesStatus) return false;
                 }
                 
+                // Namespace filter - if any namespaces are selected, filter by them
+                if (multiSelectFilters.namespace.length > 0) {
+                    if (!multiSelectFilters.namespace.includes(item.namespace)) return false;
+                }
+                
                 // Search filter
                 if (search && !item.name.toLowerCase().includes(search)) return false;
                 
@@ -1045,6 +1098,7 @@
                             <th>Task Type</th>
                             <th>Started</th>
                             <th>Duration</th>
+                            <th>Namespace</th>
                             <th>Workflow</th>
                         </tr>
                     </thead>
@@ -1062,6 +1116,7 @@
                                 <td>${item.task_type || '-'}</td>
                                 <td>${formatTimestamp(item.started_at)}</td>
                                 <td>${formatDuration(item.duration_seconds)}</td>
+                                <td>${item.namespace || '-'}</td>
                                 <td>${item.workflow_name || item.name}</td>
                             </tr>
                             `;
