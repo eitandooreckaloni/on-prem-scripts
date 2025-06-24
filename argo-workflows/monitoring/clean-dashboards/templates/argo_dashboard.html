@@ -1640,7 +1640,6 @@
                             <th>Started</th>
                             <th>Duration</th>
                             <th>Namespace</th>
-                            <th>Parent Workflow</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1658,7 +1657,6 @@
                                 <td>${formatTimestamp(item.started_at)}</td>
                                 <td>${formatDuration(item.duration_seconds)}</td>
                                 <td><code>${item.namespace || '-'}</code></td>
-                                <td>${item.workflow_name || item.name}</td>
                             </tr>
                             `;
                         }).join('')}
