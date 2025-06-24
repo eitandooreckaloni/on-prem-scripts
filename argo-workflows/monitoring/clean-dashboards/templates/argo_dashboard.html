@@ -1274,9 +1274,11 @@
             
             // Calculate average duration for completed items
             const completedItems = filteredData.filter(item => item.duration_seconds !== null && item.duration_seconds !== undefined);
-            const avgDuration = completedItems.length > 0 
-                ? (completedItems.reduce((sum, item) => sum + item.duration_seconds, 0) / completedItems.length).toFixed(1)
+            const avgDurationSeconds = completedItems.length > 0 
+                ? (completedItems.reduce((sum, item) => sum + item.duration_seconds, 0) / completedItems.length)
                 : 0;
+            
+            const avgDuration = formatDuration(avgDurationSeconds);
 
             filteredStatsGrid.innerHTML = `
                 <div class="stat-card info">
@@ -1316,7 +1318,7 @@
                 </div>
                 <div class="stat-card info">
                     <span class="material-icons stat-icon">schedule</span>
-                    <div class="stat-number">${avgDuration}s</div>
+                    <div class="stat-number">${avgDuration}</div>
                     <div class="stat-label">Avg Duration</div>
                 </div>
             `;
@@ -1332,10 +1334,14 @@
 
         function formatDuration(seconds) {
             if (!seconds) return '-';
-            if (seconds < 60) return `${seconds.toFixed(1)}s`;
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = seconds % 60;
-            return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
+            
+            const totalSeconds = Math.floor(seconds);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const secs = totalSeconds % 60;
+            
+            // Always use hh:mm:ss format for consistency
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
         function getStatusClass(status) {
@@ -1835,9 +1841,14 @@
                         y: {
                             title: {
                                 display: true,
-                                text: 'Duration (seconds)'
+                                text: 'Duration'
                             },
-                            beginAtZero: true
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatDuration(value);
+                                }
+                            }
                         }
                     },
                     plugins: {
@@ -1864,6 +1875,7 @@
                                 },
                                 label: function(context) {
                                     const point = context.raw;
+                                    
                                     if (point && point.name) {
                                         return [
                                             `${context.dataset.label}: ${formatDuration(point.y)}`,
