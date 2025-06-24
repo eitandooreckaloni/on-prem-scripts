@@ -662,15 +662,7 @@
             </div>
         </div>
 
-        <!-- Recent Workflows Summary - Minimal -->
-        <div class="workflows-section" style="background: #f8f9fa; border-radius: 6px; padding: 1rem; margin-top: 1rem; max-height: 400px; overflow: hidden;">
-            <div class="section-header" style="background: #f8f9fa; padding: 0.5rem 0; border: none; margin-bottom: 0.5rem; position: sticky; top: 0; z-index: 10;">
-                <h4 style="color: #495057; font-size: 1rem; margin: 0;">📋 Recent Workflows</h4>
-            </div>
-            <div id="workflowsContent" style="font-size: 0.9rem; max-height: 320px; overflow-y: auto;">
-                <div class="loading">Loading workflows...</div>
-            </div>
-        </div>
+
     </div>
 
     <script>
@@ -690,7 +682,6 @@
         const refreshDataBtn = document.getElementById('refreshData');
         const connectionStatus = document.getElementById('connectionStatus');
         const filteredStatsGrid = document.getElementById('filteredStatsGrid');
-        const workflowsContent = document.getElementById('workflowsContent');
 
         // Event listeners
         testConnectionBtn.addEventListener('click', testConnection);
@@ -790,49 +781,7 @@
             `;
         }
 
-        // Load workflows
-        async function loadWorkflows() {
-            try {
-                const response = await fetch('/api/workflows?limit=15');
-                const workflows = await response.json();
 
-                if (workflows.length === 0) {
-                    workflowsContent.innerHTML = '<div class="loading">No workflows found</div>';
-                    return;
-                }
-
-                const tableHTML = `
-                    <table class="workflows-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>Created</th>
-                                <th>Started</th>
-                                <th>Duration</th>
-                                <th>Namespace</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${workflows.map(wf => `
-                                <tr class="${wf.is_deleted ? 'deleted-row' : ''}">
-                                    <td><strong>${wf.name}</strong></td>
-                                    <td><span class="status-badge ${getStatusClass(wf.status)}">${wf.status}</span></td>
-                                    <td>${formatTimestamp(wf.created_at)}</td>
-                                    <td>${formatTimestamp(wf.started_at)}</td>
-                                    <td>${formatDuration(wf.duration_seconds)}</td>
-                                    <td>${wf.namespace}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-
-                workflowsContent.innerHTML = tableHTML;
-            } catch (error) {
-                workflowsContent.innerHTML = '<div class="error-message">Failed to load workflows</div>';
-            }
-        }
 
         // Utility functions
         function formatTimestamp(timestamp) {
@@ -1354,7 +1303,7 @@
             refreshDataBtn.disabled = true;
             refreshDataBtn.textContent = 'Refreshing...';
 
-            await Promise.all([loadWorkflows(), loadSmartData()]);
+            await loadSmartData();
 
             isLoading = false;
             refreshDataBtn.disabled = false;
