@@ -357,7 +357,7 @@
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
@@ -366,11 +366,12 @@
             background: var(--surface-1);
             border: 1px solid var(--border-color);
             border-radius: var(--border-radius);
-            padding: 20px 16px;
+            padding: 20px 40px 20px 16px;
             text-align: center;
             transition: all 0.2s ease;
             position: relative;
             overflow: hidden;
+            min-width: 140px;
         }
 
         .stat-card::before {
@@ -400,6 +401,8 @@
             line-height: 1;
             margin-bottom: 4px;
             color: var(--text-primary);
+            word-break: keep-all;
+            white-space: nowrap;
         }
 
         .stat-label {
@@ -413,11 +416,12 @@
         .stat-icon {
             position: absolute;
             top: 16px;
-            right: 16px;
-            width: 24px;
-            height: 24px;
+            right: 12px;
+            width: 20px;
+            height: 20px;
             opacity: 0.3;
             color: var(--text-tertiary);
+            flex-shrink: 0;
         }
 
         /* Argo-style Tables */
@@ -969,7 +973,7 @@
             }
             
             .stats-grid {
-                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
                 gap: 12px;
             }
             
