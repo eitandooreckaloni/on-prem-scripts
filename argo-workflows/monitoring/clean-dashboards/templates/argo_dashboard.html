@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
         :root {
             /* Official Argo Color Palette */
@@ -960,6 +961,25 @@
             padding: 24px;
             height: 500px;
             position: relative;
+            cursor: crosshair;
+        }
+        
+        .chart-drag-overlay {
+            position: absolute;
+            background: rgba(255, 102, 51, 0.2);
+            border: 2px solid var(--argo-orange);
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 10;
+            display: none;
+        }
+        
+        .chart-wrapper:hover {
+            cursor: crosshair;
+        }
+        
+        .chart-wrapper.dragging {
+            cursor: col-resize;
         }
 
         /* Kibana-style Time Filter */
@@ -1640,6 +1660,7 @@
             </div>
             <div id="smartChartView" class="chart-wrapper" style="display: none;">
                 <canvas id="smartChart"></canvas>
+                <div id="chartDragOverlay" class="chart-drag-overlay"></div>
             </div>
         </div>
 
@@ -1668,6 +1689,14 @@
         };
         let sortConfig = {
             sorts: [] // Array of {column, direction, type}
+        };
+        
+        // Chart drag selection state
+        let chartDragState = {
+            isDragging: false,
+            startX: null,
+            startTime: null,
+            overlay: null
         };
 
         // DOM elements
@@ -2119,6 +2148,175 @@
             }
             
             return { startTime, endTime };
+        }
+
+        // Chart drag selection functions
+        function initChartDragSelection() {
+            const chartWrapper = document.getElementById('smartChartView');
+            const canvas = document.getElementById('smartChart');
+            const overlay = document.getElementById('chartDragOverlay');
+            
+            if (!chartWrapper || !canvas || !overlay) return;
+            
+            // Mouse down - start drag selection
+            chartWrapper.addEventListener('mousedown', (e) => {
+                if (currentView !== 'chart' || !smartChart) return;
+                
+                const rect = chartWrapper.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+                const x = e.clientX - canvasRect.left;
+                
+                // Check if click is within chart area
+                const chartArea = smartChart.chartArea;
+                if (x < chartArea.left || x > chartArea.right) return;
+                
+                chartDragState.isDragging = true;
+                chartDragState.startX = x;
+                chartDragState.startTime = getTimeFromChartX(x);
+                
+                chartWrapper.classList.add('dragging');
+                overlay.style.display = 'block';
+                
+                // Position overlay relative to canvas, covering full chart height
+                const canvasOffsetX = canvasRect.left - rect.left;
+                const canvasOffsetY = canvasRect.top - rect.top;
+                
+                overlay.style.left = (canvasOffsetX + x) + 'px';
+                overlay.style.width = '0px';
+                overlay.style.top = (canvasOffsetY + chartArea.top) + 'px';
+                overlay.style.height = (chartArea.bottom - chartArea.top) + 'px';
+                
+                e.preventDefault();
+            });
+            
+            // Mouse move - update drag selection
+            chartWrapper.addEventListener('mousemove', (e) => {
+                if (!chartDragState.isDragging || currentView !== 'chart' || !smartChart) return;
+                
+                const rect = chartWrapper.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+                const x = e.clientX - canvasRect.left;
+                const chartArea = smartChart.chartArea;
+                
+                // Constrain to chart area
+                const constrainedX = Math.max(chartArea.left, Math.min(chartArea.right, x));
+                
+                const startX = chartDragState.startX;
+                const left = Math.min(startX, constrainedX);
+                const width = Math.abs(constrainedX - startX);
+                
+                // Position relative to canvas
+                const canvasOffsetX = canvasRect.left - rect.left;
+                
+                overlay.style.left = (canvasOffsetX + left) + 'px';
+                overlay.style.width = width + 'px';
+            });
+            
+            // Mouse up - complete drag selection
+            chartWrapper.addEventListener('mouseup', (e) => {
+                if (!chartDragState.isDragging) return;
+                
+                const canvasRect = canvas.getBoundingClientRect();
+                const endX = e.clientX - canvasRect.left;
+                const chartArea = smartChart.chartArea;
+                
+                // Constrain to chart area
+                const constrainedEndX = Math.max(chartArea.left, Math.min(chartArea.right, endX));
+                
+                const startTime = chartDragState.startTime;
+                const endTime = getTimeFromChartX(constrainedEndX);
+                
+                // Only apply if there's a meaningful selection (at least 1 minute)
+                if (Math.abs(endTime - startTime) > 60000) {
+                    applyChartTimeSelection(
+                        new Date(Math.min(startTime, endTime)),
+                        new Date(Math.max(startTime, endTime))
+                    );
+                }
+                
+                // Reset drag state
+                chartDragState.isDragging = false;
+                chartDragState.startX = null;
+                chartDragState.startTime = null;
+                
+                chartWrapper.classList.remove('dragging');
+                overlay.style.display = 'none';
+            });
+            
+            // Mouse leave - cancel drag selection
+            chartWrapper.addEventListener('mouseleave', () => {
+                if (chartDragState.isDragging) {
+                    chartDragState.isDragging = false;
+                    chartDragState.startX = null;
+                    chartDragState.startTime = null;
+                    
+                    chartWrapper.classList.remove('dragging');
+                    overlay.style.display = 'none';
+                }
+            });
+        }
+        
+        function getTimeFromChartX(x) {
+            if (!smartChart || !smartChart.scales || !smartChart.scales.x) return null;
+            
+            const xScale = smartChart.scales.x;
+            return xScale.getValueForPixel(x);
+        }
+        
+        function applyChartTimeSelection(startTime, endTime) {
+            // Update the time range
+            currentTimeRange = {
+                type: 'custom',
+                preset: null,
+                custom: {
+                    start: startTime,
+                    end: endTime
+                }
+            };
+            
+            // Clear preset button states
+            document.querySelectorAll('.time-preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Update time filter inputs
+            const startInput = document.getElementById('startDateTime');
+            const endInput = document.getElementById('endDateTime');
+            
+            if (startInput && endInput) {
+                startInput.value = formatDateTimeLocal(startTime);
+                endInput.value = formatDateTimeLocal(endTime);
+            }
+            
+            // Update display text
+            updateTimeFilterDisplay();
+            
+            // Refresh the view
+            updateSmartView();
+            
+            // Show feedback
+            showTimeSelectionFeedback(startTime, endTime);
+        }
+        
+        function formatDateTimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+        
+        function showTimeSelectionFeedback(startTime, endTime) {
+            const formatDate = (date) => date.toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+            
+            showConnectionAlert('info', 
+                `Time range updated: ${formatDate(startTime)} - ${formatDate(endTime)}`
+            );
         }
 
         // Sorting functions
@@ -2763,6 +2961,7 @@
                 smartChart = new Chart(ctx, {
                     type: 'bar',
                     data: { datasets },
+                    plugins: [ChartZoom],
                     options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -2800,11 +2999,25 @@
                             }
                         }
                     },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Performance Chart - Individual Executions with Reference Lines'
-                        },
+                                            plugins: {
+                            title: {
+                                display: true,
+                                text: 'Performance Chart - Individual Executions with Reference Lines (Drag to zoom)'
+                            },
+                            zoom: {
+                                zoom: {
+                                    wheel: {
+                                        enabled: false
+                                    },
+                                    pinch: {
+                                        enabled: false
+                                    },
+                                    mode: 'x'
+                                },
+                                pan: {
+                                    enabled: false
+                                }
+                            },
                         tooltip: {
                             filter: function(tooltipItem) {
                                 // Only show tooltips for bar chart data, not reference lines
@@ -2882,6 +3095,9 @@
             
             // Initialize sort UI
             updateSortUI();
+            
+            // Initialize chart drag selection
+            initChartDragSelection();
             
             // Run initial connection test and data load
             setTimeout(() => {
