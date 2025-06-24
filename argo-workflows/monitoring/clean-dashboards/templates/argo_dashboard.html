@@ -222,8 +222,13 @@
         }
 
         .deleted-row {
-            opacity: 0.7;
+            opacity: 0.5;
             font-style: italic;
+            color: #6c757d !important;
+        }
+        
+        .deleted-row td {
+            color: #6c757d !important;
         }
 
         .refresh-btn {
@@ -1036,8 +1041,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredData.map(item => `
-                            <tr class="${item.type === 'task' ? 'task-row' : ''}">
+                        ${filteredData.map(item => {
+                            let rowClasses = [];
+                            if (item.type === 'task') rowClasses.push('task-row');
+                            if (item.is_deleted) rowClasses.push('deleted-row');
+                            return `
+                            <tr class="${rowClasses.join(' ')}">
                                 <td><span class="type-badge type-${item.type}">${item.type.toUpperCase()}</span></td>
                                 <td><strong>${item.name}</strong></td>
                                 <td><span class="status-badge ${getStatusClass(item.status)}">${item.status}</span></td>
@@ -1047,7 +1056,8 @@
                                 <td>${formatDuration(item.duration_seconds)}</td>
                                 <td>${item.workflow_name || item.name}</td>
                             </tr>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
             `;

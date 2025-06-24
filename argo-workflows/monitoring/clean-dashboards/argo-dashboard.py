@@ -196,7 +196,22 @@ class ArgoConnection:
             
             # Determine if workflow is deleted (not in live workflows)
             is_deleted = uid not in live_uids
-            display_status = f"Deleted ({status})" if is_deleted else status
+            if is_deleted:
+                # Clean up any existing "Deleted" or "DELETED" formatting to get base status
+                original_status = status
+                if status.startswith('Deleted (') and status.endswith(')'):
+                    original_status = status[9:-1]  # Remove "Deleted (" and ")"
+                elif status.startswith('DELETED (') and status.endswith(')'):
+                    original_status = status[9:-1]  # Remove "DELETED (" and ")"
+                elif status.lower().startswith('deleted'):
+                    # Handle cases like "deleted" without parentheses
+                    original_status = status.replace('deleted', '').replace('Deleted', '').replace('DELETED', '').strip()
+                    if not original_status:  # If nothing left, default to Unknown
+                        original_status = 'Unknown'
+                
+                display_status = f"DELETED ({original_status.upper()})"
+            else:
+                display_status = status
             
             workflows.append({
                 'name': name,
@@ -319,12 +334,25 @@ class ArgoConnection:
                     # This is a deleted workflow
                     workflow_type = '-'.join(stored_wf['name'].split('-')[:-1]) if '-' in stored_wf['name'] else stored_wf['name']
                     
+                    # Clean up any existing "Deleted" or "DELETED" formatting to get base status
+                    stored_status = stored_wf['status']
+                    original_status = stored_status
+                    if stored_status.startswith('Deleted (') and stored_status.endswith(')'):
+                        original_status = stored_status[9:-1]  # Remove "Deleted (" and ")"
+                    elif stored_status.startswith('DELETED (') and stored_status.endswith(')'):
+                        original_status = stored_status[9:-1]  # Remove "DELETED (" and ")"
+                    elif stored_status.lower().startswith('deleted'):
+                        # Handle cases like "deleted" without parentheses
+                        original_status = stored_status.replace('deleted', '').replace('Deleted', '').replace('DELETED', '').strip()
+                        if not original_status:  # If nothing left, default to Unknown
+                            original_status = 'Unknown'
+                    
                     deleted_workflow = {
                         'type': 'workflow',
                         'name': stored_wf['name'],
                         'uid': stored_wf['uid'],
                         'workflow_type': workflow_type,
-                        'status': f"Deleted ({stored_wf['status']})",
+                        'status': f"DELETED ({original_status.upper()})",
                         'created_at': stored_wf['created_at'],
                         'started_at': stored_wf['started_at'],
                         'finished_at': stored_wf['finished_at'],
