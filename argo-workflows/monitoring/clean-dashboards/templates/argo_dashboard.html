@@ -404,6 +404,7 @@
             gap: 0.5rem;
             font-size: 0.85rem;
             border-bottom: 1px solid #f8f9fa;
+            user-select: none;
         }
 
         .multi-select-option:hover {
@@ -412,6 +413,13 @@
 
         .multi-select-option input[type="checkbox"] {
             margin: 0;
+            pointer-events: none; /* Prevent direct clicking on checkbox */
+        }
+
+        .multi-select-option label {
+            cursor: pointer;
+            flex: 1;
+            pointer-events: none; /* Prevent direct clicking on label */
         }
 
         .multi-select-actions {
@@ -629,20 +637,20 @@
                                 <button onclick="clearAllFilter('status')">Clear All</button>
                             </div>
                             <div id="statusOptions">
-                                <div class="multi-select-option">
-                                    <input type="checkbox" id="status_Succeeded" value="Succeeded" onchange="updateMultiSelectFilter('status')">
+                                <div class="multi-select-option" onclick="toggleFilterOption('status', 'Succeeded')">
+                                    <input type="checkbox" id="status_Succeeded" value="Succeeded">
                                     <label for="status_Succeeded">Succeeded</label>
                                 </div>
-                                <div class="multi-select-option">
-                                    <input type="checkbox" id="status_Failed" value="Failed" onchange="updateMultiSelectFilter('status')">
+                                <div class="multi-select-option" onclick="toggleFilterOption('status', 'Failed')">
+                                    <input type="checkbox" id="status_Failed" value="Failed">
                                     <label for="status_Failed">Failed</label>
                                 </div>
-                                <div class="multi-select-option">
-                                    <input type="checkbox" id="status_Running" value="Running" onchange="updateMultiSelectFilter('status')">
+                                <div class="multi-select-option" onclick="toggleFilterOption('status', 'Running')">
+                                    <input type="checkbox" id="status_Running" value="Running">
                                     <label for="status_Running">Running</label>
                                 </div>
-                                <div class="multi-select-option">
-                                    <input type="checkbox" id="status_deleted" value="deleted" onchange="updateMultiSelectFilter('status')">
+                                <div class="multi-select-option" onclick="toggleFilterOption('status', 'deleted')">
+                                    <input type="checkbox" id="status_deleted" value="deleted">
                                     <label for="status_deleted">Deleted</label>
                                 </div>
                             </div>
@@ -863,8 +871,9 @@
                 smartData.summary.workflow_types.forEach(type => {
                     const optionDiv = document.createElement('div');
                     optionDiv.className = 'multi-select-option';
+                    optionDiv.onclick = () => toggleFilterOption('workflowType', type);
                     optionDiv.innerHTML = `
-                        <input type="checkbox" id="workflowType_${type}" value="${type}" onchange="updateMultiSelectFilter('workflowType')">
+                        <input type="checkbox" id="workflowType_${type}" value="${type}">
                         <label for="workflowType_${type}">${type}</label>
                     `;
                     workflowTypeOptions.appendChild(optionDiv);
@@ -879,8 +888,9 @@
                 smartData.summary.task_types.forEach(type => {
                     const optionDiv = document.createElement('div');
                     optionDiv.className = 'multi-select-option';
+                    optionDiv.onclick = () => toggleFilterOption('taskType', type);
                     optionDiv.innerHTML = `
-                        <input type="checkbox" id="taskType_${type}" value="${type}" onchange="updateMultiSelectFilter('taskType')">
+                        <input type="checkbox" id="taskType_${type}" value="${type}">
                         <label for="taskType_${type}">${type}</label>
                     `;
                     taskTypeOptions.appendChild(optionDiv);
@@ -907,8 +917,9 @@
             Array.from(namespaces).sort().forEach(namespace => {
                 const optionDiv = document.createElement('div');
                 optionDiv.className = 'multi-select-option';
+                optionDiv.onclick = () => toggleFilterOption('namespace', namespace);
                 optionDiv.innerHTML = `
-                    <input type="checkbox" id="namespace_${namespace}" value="${namespace}" onchange="updateMultiSelectFilter('namespace')">
+                    <input type="checkbox" id="namespace_${namespace}" value="${namespace}">
                     <label for="namespace_${namespace}">${namespace}</label>
                 `;
                 namespaceOptions.appendChild(optionDiv);
@@ -977,6 +988,14 @@
             const checkboxes = document.querySelectorAll(`#${filterType}Options input[type="checkbox"]`);
             checkboxes.forEach(cb => cb.checked = false);
             updateMultiSelectFilter(filterType);
+        }
+
+        function toggleFilterOption(filterType, value) {
+            const checkbox = document.getElementById(`${filterType}_${value}`);
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                updateMultiSelectFilter(filterType);
+            }
         }
 
         // Close dropdowns when clicking outside
