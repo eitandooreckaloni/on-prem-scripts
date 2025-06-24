@@ -673,7 +673,7 @@
             border: 1px solid var(--border-color);
             border-radius: var(--border-radius-lg);
             margin-bottom: 24px;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .filters-header {
@@ -698,6 +698,7 @@
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             align-items: start;
+            overflow: visible;
         }
 
         .chart-container {
@@ -717,6 +718,7 @@
         /* Argo-style Multi-Select Dropdown */
         .multi-select-container {
             position: relative;
+            overflow: visible;
         }
 
         .multi-select-header {
@@ -770,11 +772,14 @@
             border: 1px solid var(--border-color);
             border-top: none;
             border-radius: 0 0 var(--border-radius) var(--border-radius);
-            max-height: 240px;
+            max-height: 320px;
             overflow-y: auto;
+            overflow-x: visible;
             z-index: 1000;
             display: none;
-            box-shadow: var(--shadow-md);
+            box-shadow: var(--shadow-lg);
+            min-width: 100%;
+            width: max-content;
         }
 
         .multi-select-dropdown.show {
@@ -839,6 +844,9 @@
             color: var(--text-primary);
             cursor: pointer;
             pointer-events: none;
+            white-space: nowrap;
+            overflow: visible;
+            text-overflow: clip;
         }
 
         .selected-count {
