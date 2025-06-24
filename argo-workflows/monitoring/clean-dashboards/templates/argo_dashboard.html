@@ -459,6 +459,7 @@
             padding: 12px 16px;
             text-align: left;
             border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
         }
 
         .data-table th {
@@ -498,16 +499,18 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 4px 8px;
+            padding: 6px 10px;
             border-radius: 12px;
             font-size: 12px;
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            white-space: nowrap;
-            max-width: 120px;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            line-height: 1.2;
+            max-width: 160px;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            text-align: left;
+            min-height: 24px;
         }
 
         .status-badge::before {
@@ -517,6 +520,8 @@
             border-radius: 50%;
             background: currentColor;
             flex-shrink: 0;
+            margin-top: 1px;
+            align-self: flex-start;
         }
 
         .status-succeeded {
