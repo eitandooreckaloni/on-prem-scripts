@@ -962,6 +962,188 @@
             position: relative;
         }
 
+        /* Kibana-style Time Filter */
+        .time-filter-container {
+            position: relative;
+        }
+
+        .time-filter-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: var(--surface-1);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 14px;
+            min-height: 38px;
+        }
+
+        .time-filter-display:hover {
+            border-color: var(--argo-navy);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .time-filter-display.active {
+            border-color: var(--argo-orange);
+            box-shadow: 0 0 0 3px rgba(255, 102, 51, 0.1);
+        }
+
+        .time-filter-icon {
+            color: var(--argo-orange);
+            font-size: 18px;
+        }
+
+        .time-filter-arrow {
+            color: var(--text-tertiary);
+            font-size: 18px;
+            margin-left: auto;
+            transition: transform 0.15s ease;
+        }
+
+        .time-filter-display.active .time-filter-arrow {
+            transform: rotate(180deg);
+        }
+
+        .time-filter-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--surface-1);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 1001;
+            display: none;
+            min-width: 320px;
+            max-height: 500px;
+            overflow: hidden;
+        }
+
+        .time-filter-dropdown.show {
+            display: block;
+        }
+
+        .time-filter-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--surface-2);
+        }
+
+        .time-filter-header h4 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .time-filter-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-tertiary);
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.15s ease;
+        }
+
+        .time-filter-close:hover {
+            background: var(--surface-3);
+            color: var(--text-primary);
+        }
+
+        .time-filter-content {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .time-filter-section {
+            margin-bottom: 24px;
+        }
+
+        .time-filter-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .time-filter-section h5 {
+            margin: 0 0 12px 0;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .time-presets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .time-presets .time-preset-btn:last-child:nth-child(odd) {
+            grid-column: 1 / -1;
+        }
+
+        .time-preset-btn {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            background: var(--surface-1);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            transition: all 0.15s ease;
+            text-align: left;
+        }
+
+        .time-preset-btn:hover {
+            background: var(--surface-2);
+            border-color: var(--argo-navy);
+        }
+
+        .time-preset-btn.active {
+            background: var(--argo-orange);
+            border-color: var(--argo-orange);
+            color: white;
+        }
+
+        .custom-time-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .time-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .time-input-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .time-filter-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .navbar-content {
@@ -1052,6 +1234,58 @@
                 </div>
             </div>
             <div class="filters-content">
+                <div class="form-group">
+                    <label class="form-label">Time Range</label>
+                    <div class="time-filter-container">
+                        <div class="time-filter-display" id="timeFilterDisplay" onclick="toggleTimeFilter()">
+                            <span class="material-icons time-filter-icon">schedule</span>
+                            <span id="timeFilterText">Last 24 hours</span>
+                            <span class="material-icons time-filter-arrow">keyboard_arrow_down</span>
+                        </div>
+                        <div id="timeFilterDropdown" class="time-filter-dropdown">
+                            <div class="time-filter-header">
+                                <h4>Select time range</h4>
+                                <button class="time-filter-close" onclick="toggleTimeFilter()">
+                                    <span class="material-icons">close</span>
+                                </button>
+                            </div>
+                            <div class="time-filter-content">
+                                <div class="time-filter-section">
+                                    <h5>Quick select</h5>
+                                    <div class="time-presets">
+                                        <button class="time-preset-btn" onclick="setTimeRange('15m')">Last 15 minutes</button>
+                                        <button class="time-preset-btn" onclick="setTimeRange('30m')">Last 30 minutes</button>
+                                        <button class="time-preset-btn" onclick="setTimeRange('1h')">Last 1 hour</button>
+                                        <button class="time-preset-btn" onclick="setTimeRange('3h')">Last 3 hours</button>
+                                        <button class="time-preset-btn" onclick="setTimeRange('12h')">Last 12 hours</button>
+                                        <button class="time-preset-btn active" onclick="setTimeRange('24h')">Last 24 hours</button>
+                                        <button class="time-preset-btn" onclick="setTimeRange('7d')">Last 7 days</button>
+                                        <button class="time-preset-btn" onclick="setTimeRange('30d')">Last 30 days</button>
+                                        <button class="time-preset-btn" onclick="setTimeRange('90d')">Last 90 days</button>
+                                        <button class="time-preset-btn" onclick="setTimeRange('forever')">Forever</button>
+                                    </div>
+                                </div>
+                                <div class="time-filter-section">
+                                    <h5>Custom range</h5>
+                                    <div class="custom-time-inputs">
+                                        <div class="time-input-group">
+                                            <label>From</label>
+                                            <input type="datetime-local" id="startDateTime" class="form-control">
+                                        </div>
+                                        <div class="time-input-group">
+                                            <label>To</label>
+                                            <input type="datetime-local" id="endDateTime" class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="time-filter-actions">
+                                        <button class="btn btn-secondary" onclick="toggleTimeFilter()">Cancel</button>
+                                        <button class="btn btn-primary" onclick="applyCustomTimeRange()">Apply</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label class="form-label">Show Items</label>
                     <select id="itemTypeFilter" class="form-control" onchange="updateSmartView()">
@@ -1197,6 +1431,14 @@
             taskType: [],
             status: [],
             namespace: []
+        };
+        let currentTimeRange = {
+            type: 'preset',
+            preset: '24h',
+            custom: {
+                start: null,
+                end: null
+            }
         };
 
         // DOM elements
@@ -1514,6 +1756,142 @@
             }
         }
 
+        // Time filter functions
+        function toggleTimeFilter() {
+            const dropdown = document.getElementById('timeFilterDropdown');
+            const display = document.getElementById('timeFilterDisplay');
+            
+            // Close other dropdowns
+            document.querySelectorAll('.multi-select-dropdown').forEach(dd => {
+                dd.classList.remove('show');
+                dd.previousElementSibling.classList.remove('active');
+            });
+            
+            // Toggle time filter
+            dropdown.classList.toggle('show');
+            display.classList.toggle('active');
+        }
+
+        function setTimeRange(preset) {
+            currentTimeRange = {
+                type: 'preset',
+                preset: preset,
+                custom: { start: null, end: null }
+            };
+            
+            // Update button states
+            document.querySelectorAll('.time-preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update display text
+            updateTimeFilterDisplay();
+            
+            // Close dropdown and apply filter
+            toggleTimeFilter();
+            updateSmartView();
+        }
+
+        function applyCustomTimeRange() {
+            const startDateTime = document.getElementById('startDateTime').value;
+            const endDateTime = document.getElementById('endDateTime').value;
+            
+            if (!startDateTime || !endDateTime) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            
+            if (new Date(startDateTime) >= new Date(endDateTime)) {
+                alert('Start date must be before end date');
+                return;
+            }
+            
+            currentTimeRange = {
+                type: 'custom',
+                preset: null,
+                custom: {
+                    start: new Date(startDateTime),
+                    end: new Date(endDateTime)
+                }
+            };
+            
+            // Clear preset button states
+            document.querySelectorAll('.time-preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Update display text
+            updateTimeFilterDisplay();
+            
+            // Close dropdown and apply filter
+            toggleTimeFilter();
+            updateSmartView();
+        }
+
+        function updateTimeFilterDisplay() {
+            const textElement = document.getElementById('timeFilterText');
+            
+            if (currentTimeRange.type === 'preset') {
+                const presetLabels = {
+                    '15m': 'Last 15 minutes',
+                    '30m': 'Last 30 minutes',
+                    '1h': 'Last 1 hour',
+                    '3h': 'Last 3 hours',
+                    '12h': 'Last 12 hours',
+                    '24h': 'Last 24 hours',
+                    '7d': 'Last 7 days',
+                    '30d': 'Last 30 days',
+                    '90d': 'Last 90 days',
+                    'forever': 'Forever'
+                };
+                textElement.textContent = presetLabels[currentTimeRange.preset] || 'Last 24 hours';
+            } else if (currentTimeRange.type === 'custom') {
+                const start = currentTimeRange.custom.start;
+                const end = currentTimeRange.custom.end;
+                const formatDate = (date) => date.toLocaleDateString('en-US', { 
+                    month: 'short', day: 'numeric', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+                textElement.textContent = `${formatDate(start)} - ${formatDate(end)}`;
+            }
+        }
+
+        function getTimeRangeFilter() {
+            const now = new Date();
+            let startTime, endTime;
+            
+            if (currentTimeRange.type === 'preset') {
+                const preset = currentTimeRange.preset;
+                
+                // Handle "forever" case - no time filtering
+                if (preset === 'forever') {
+                    return { startTime: null, endTime: null };
+                }
+                
+                const presetMinutes = {
+                    '15m': 15,
+                    '30m': 30,
+                    '1h': 60,
+                    '3h': 180,
+                    '12h': 720,
+                    '24h': 1440,
+                    '7d': 10080,
+                    '30d': 43200,
+                    '90d': 129600
+                };
+                
+                const minutes = presetMinutes[preset] || 1440;
+                startTime = new Date(now.getTime() - (minutes * 60 * 1000));
+                endTime = now;
+            } else if (currentTimeRange.type === 'custom') {
+                startTime = currentTimeRange.custom.start;
+                endTime = currentTimeRange.custom.end;
+            }
+            
+            return { startTime, endTime };
+        }
+
         // Close dropdowns when clicking outside
         document.addEventListener('click', function(event) {
             if (!event.target.closest('.multi-select-container')) {
@@ -1521,6 +1899,15 @@
                     dropdown.classList.remove('show');
                     dropdown.previousElementSibling.classList.remove('active');
                 });
+            }
+            
+            if (!event.target.closest('.time-filter-container')) {
+                const timeDropdown = document.getElementById('timeFilterDropdown');
+                const timeDisplay = document.getElementById('timeFilterDisplay');
+                if (timeDropdown && timeDisplay) {
+                    timeDropdown.classList.remove('show');
+                    timeDisplay.classList.remove('active');
+                }
             }
         });
 
@@ -1560,6 +1947,7 @@
         function applySmartFilters() {
             const itemType = document.getElementById('itemTypeFilter').value;
             const search = document.getElementById('searchFilter').value.toLowerCase();
+            const timeFilter = getTimeRangeFilter();
 
             let allItems = [];
             
@@ -1575,6 +1963,18 @@
 
             // Apply filters
             return allItems.filter(item => {
+                // Time range filter
+                if (timeFilter.startTime && timeFilter.endTime) {
+                    const itemTime = item.started_at ? new Date(item.started_at) : 
+                                   item.created_at ? new Date(item.created_at) : null;
+                    
+                    if (itemTime) {
+                        if (itemTime < timeFilter.startTime || itemTime > timeFilter.endTime) {
+                            return false;
+                        }
+                    }
+                }
+                
                 // Workflow type filter - if any workflow types are selected, filter by them
                 if (multiSelectFilters.workflowType.length > 0) {
                     if (!multiSelectFilters.workflowType.includes(item.workflow_type)) return false;
