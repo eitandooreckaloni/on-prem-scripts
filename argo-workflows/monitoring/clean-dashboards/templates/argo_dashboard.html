@@ -11,38 +11,57 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script>
     <style>
         :root {
-            --argo-blue: #326CE5;
-            --argo-blue-dark: #1557CC;
-            --argo-blue-light: #4285F4;
-            --argo-blue-bg: #E8F0FE;
-            --argo-green: #34A853;
-            --argo-green-bg: #E6F4EA;
-            --argo-red: #EA4335;
-            --argo-red-bg: #FCE8E6;
-            --argo-orange: #FBBC04;
-            --argo-orange-bg: #FEF7E0;
-            --argo-gray-50: #FAFBFC;
-            --argo-gray-100: #F1F3F4;
-            --argo-gray-200: #E8EAED;
-            --argo-gray-300: #DADCE0;
-            --argo-gray-400: #BDC1C6;
-            --argo-gray-500: #9AA0A6;
-            --argo-gray-600: #80868B;
-            --argo-gray-700: #5F6368;
-            --argo-gray-800: #3C4043;
-            --argo-gray-900: #202124;
-            --surface-1: #FFFFFF;
-            --surface-2: var(--argo-gray-50);
-            --surface-3: var(--argo-gray-100);
-            --border-color: var(--argo-gray-200);
-            --text-primary: var(--argo-gray-900);
-            --text-secondary: var(--argo-gray-700);
-            --text-tertiary: var(--argo-gray-500);
-            --shadow-sm: 0 1px 2px 0 rgba(60, 64, 67, 0.1), 0 1px 3px 1px rgba(60, 64, 67, 0.05);
-            --shadow-md: 0 1px 2px 0 rgba(60, 64, 67, 0.15), 0 2px 6px 2px rgba(60, 64, 67, 0.08);
-            --shadow-lg: 0 2px 4px -2px rgba(60, 64, 67, 0.16), 0 4px 8px -2px rgba(60, 64, 67, 0.1);
-            --border-radius: 8px;
-            --border-radius-lg: 12px;
+            /* Official Argo Color Palette */
+            --argo-navy: #4c5866;
+            --argo-navy-dark: #3a434e;
+            --argo-navy-light: #6b7785;
+            --argo-orange: #ff6633;
+            --argo-orange-dark: #e55a2b;
+            --argo-orange-light: #ff8566;
+            --argo-orange-bg: #fff4f0;
+            --argo-navy-bg: #f4f5f7;
+            
+            /* Status Colors */
+            --status-success: #28a745;
+            --status-success-bg: #d4edda;
+            --status-error: #dc3545;
+            --status-error-bg: #f8d7da;
+            --status-warning: #ffc107;
+            --status-warning-bg: #fff3cd;
+            --status-info: #17a2b8;
+            --status-info-bg: #d1ecf1;
+            
+            /* Neutral Colors */
+            --gray-50: #fafafb;
+            --gray-100: #f4f5f7;
+            --gray-200: #e4e7ea;
+            --gray-300: #d1d5da;
+            --gray-400: #959da5;
+            --gray-500: #6a737d;
+            --gray-600: #586069;
+            --gray-700: #444d56;
+            --gray-800: #2f363d;
+            --gray-900: #24292e;
+            
+            /* Surface Colors */
+            --surface-1: #ffffff;
+            --surface-2: var(--gray-50);
+            --surface-3: var(--gray-100);
+            --border-color: var(--gray-200);
+            
+            /* Text Colors */
+            --text-primary: var(--gray-900);
+            --text-secondary: var(--gray-700);
+            --text-tertiary: var(--gray-500);
+            
+            /* Shadows */
+            --shadow-sm: 0 1px 3px 0 rgba(76, 88, 102, 0.1), 0 1px 2px 0 rgba(76, 88, 102, 0.06);
+            --shadow-md: 0 4px 6px -1px rgba(76, 88, 102, 0.1), 0 2px 4px -1px rgba(76, 88, 102, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(76, 88, 102, 0.1), 0 4px 6px -2px rgba(76, 88, 102, 0.05);
+            
+            /* Border Radius */
+            --border-radius: 6px;
+            --border-radius-lg: 8px;
         }
 
         * {
@@ -91,25 +110,34 @@
         .argo-logo {
             width: 32px;
             height: 32px;
-            background: linear-gradient(135deg, var(--argo-blue) 0%, var(--argo-blue-light) 100%);
+            background: var(--argo-navy);
             border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 14px;
             position: relative;
+            overflow: hidden;
+        }
+
+        .argo-logo::before {
+            content: 'argo';
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
         }
 
         .argo-logo::after {
             content: '';
             position: absolute;
-            width: 16px;
-            height: 16px;
-            background: white;
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-            opacity: 0.9;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+            background: var(--argo-orange);
+            border-radius: 50%;
         }
 
         .brand-text {
@@ -147,13 +175,13 @@
         }
 
         .status-indicator.connected {
-            background: var(--argo-green-bg);
-            color: var(--argo-green);
+            background: var(--status-success-bg);
+            color: var(--status-success);
         }
 
         .status-indicator.disconnected {
-            background: var(--argo-red-bg);
-            color: var(--argo-red);
+            background: var(--status-error-bg);
+            color: var(--status-error);
         }
 
         .status-indicator.pending {
@@ -194,19 +222,19 @@
         }
 
         .btn:focus-visible {
-            outline: 2px solid var(--argo-blue);
+            outline: 2px solid var(--argo-orange);
             outline-offset: 2px;
         }
 
         .btn-primary {
-            background: var(--argo-blue);
+            background: var(--argo-orange);
             color: white;
-            border-color: var(--argo-blue);
+            border-color: var(--argo-orange);
         }
 
         .btn-primary:hover:not(:disabled) {
-            background: var(--argo-blue-dark);
-            border-color: var(--argo-blue-dark);
+            background: var(--argo-orange-dark);
+            border-color: var(--argo-orange-dark);
         }
 
         .btn-secondary {
@@ -221,14 +249,14 @@
         }
 
         .btn-success {
-            background: var(--argo-green);
+            background: var(--status-success);
             color: white;
-            border-color: var(--argo-green);
+            border-color: var(--status-success);
         }
 
         .btn-success:hover:not(:disabled) {
-            background: #2E7D4F;
-            border-color: #2E7D4F;
+            background: #218838;
+            border-color: #218838;
         }
 
         .btn:disabled {
@@ -303,27 +331,27 @@
         }
 
         .alert-success {
-            background: var(--argo-green-bg);
-            color: var(--argo-green);
-            border: 1px solid rgba(52, 168, 83, 0.2);
+            background: var(--status-success-bg);
+            color: var(--status-success);
+            border: 1px solid rgba(40, 167, 69, 0.2);
         }
 
         .alert-danger {
-            background: var(--argo-red-bg);
-            color: var(--argo-red);
-            border: 1px solid rgba(234, 67, 53, 0.2);
+            background: var(--status-error-bg);
+            color: var(--status-error);
+            border: 1px solid rgba(220, 53, 69, 0.2);
         }
 
         .alert-warning {
-            background: var(--argo-orange-bg);
-            color: #F29900;
-            border: 1px solid rgba(251, 188, 4, 0.2);
+            background: var(--status-warning-bg);
+            color: var(--status-warning);
+            border: 1px solid rgba(255, 193, 7, 0.2);
         }
 
         .alert-info {
-            background: var(--argo-blue-bg);
-            color: var(--argo-blue);
-            border: 1px solid rgba(50, 108, 229, 0.2);
+            background: var(--status-info-bg);
+            color: var(--status-info);
+            border: 1px solid rgba(23, 162, 184, 0.2);
         }
 
         /* Stats Grid */
@@ -361,10 +389,10 @@
             transform: translateY(-1px);
         }
 
-        .stat-card.success::before { background: var(--argo-green); }
-        .stat-card.danger::before { background: var(--argo-red); }
-        .stat-card.warning::before { background: var(--argo-orange); }
-        .stat-card.info::before { background: var(--argo-blue); }
+        .stat-card.success::before { background: var(--status-success); }
+        .stat-card.danger::before { background: var(--status-error); }
+        .stat-card.warning::before { background: var(--status-warning); }
+        .stat-card.info::before { background: var(--argo-navy); }
 
         .stat-number {
             font-size: 28px;
@@ -488,23 +516,23 @@
         }
 
         .status-succeeded {
-            background: var(--argo-green-bg);
-            color: var(--argo-green);
+            background: var(--status-success-bg);
+            color: var(--status-success);
         }
 
         .status-failed {
-            background: var(--argo-red-bg);
-            color: var(--argo-red);
+            background: var(--status-error-bg);
+            color: var(--status-error);
         }
 
         .status-running {
-            background: var(--argo-blue-bg);
-            color: var(--argo-blue);
+            background: var(--status-info-bg);
+            color: var(--status-info);
         }
 
         .status-pending {
-            background: var(--argo-orange-bg);
-            color: #F29900;
+            background: var(--status-warning-bg);
+            color: var(--status-warning);
         }
 
         .status-unknown {
@@ -547,7 +575,7 @@
             width: 24px;
             height: 24px;
             border: 2px solid var(--border-color);
-            border-top-color: var(--argo-blue);
+            border-top-color: var(--argo-orange);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 12px;
@@ -613,8 +641,8 @@
         }
 
         .form-control:focus {
-            border-color: var(--argo-blue);
-            box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.1);
+            border-color: var(--argo-navy);
+            box-shadow: 0 0 0 3px rgba(76, 88, 102, 0.1);
         }
 
         .form-control:disabled {
@@ -707,12 +735,12 @@
         }
 
         .multi-select-header:hover {
-            border-color: var(--argo-blue);
+            border-color: var(--argo-navy);
         }
 
         .multi-select-header.active {
-            border-color: var(--argo-blue);
-            box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.1);
+            border-color: var(--argo-navy);
+            box-shadow: 0 0 0 3px rgba(76, 88, 102, 0.1);
         }
 
         .multi-select-display {
@@ -814,12 +842,12 @@
         }
 
         .selected-count {
-            color: var(--argo-blue);
+            color: var(--argo-orange);
             font-weight: 600;
         }
 
         .filter-badge {
-            background: var(--argo-blue);
+            background: var(--argo-orange);
             color: white;
             border-radius: 10px;
             padding: 2px 8px;
@@ -858,7 +886,7 @@
         }
 
         .toggle-button.active {
-            background: var(--argo-blue);
+            background: var(--argo-orange);
             color: white;
         }
 
@@ -902,13 +930,13 @@
         }
 
         .type-workflow {
-            background: var(--argo-blue-bg);
-            color: var(--argo-blue);
+            background: var(--argo-navy-bg);
+            color: var(--argo-navy);
         }
 
         .type-task {
             background: var(--argo-orange-bg);
-            color: #F29900;
+            color: var(--argo-orange);
         }
 
         .chart-wrapper {
