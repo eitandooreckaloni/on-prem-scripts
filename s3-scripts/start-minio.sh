@@ -14,16 +14,23 @@ else
   echo "Docker is already running."
 fi
 
-# Run MinIO container if not already running
-if ! docker ps --format '{{.Names}}' | grep -q '^minio$'; then
-  echo "Starting MinIO container..."
+# Check if MinIO container exists (running or stopped)
+if docker ps -a --format '{{.Names}}' | grep -q '^minio$'; then
+  # Container exists, check if it's running
+  if docker ps --format '{{.Names}}' | grep -q '^minio$'; then
+    echo "MinIO container is already running."
+  else
+    echo "MinIO container exists but is stopped. Starting it..."
+    docker start minio
+  fi
+else
+  # Container doesn't exist, create and run it
+  echo "Creating and starting MinIO container..."
   docker run -d --name minio \
     -p 9000:9000 -p 9001:9001 \
     -e "MINIO_ROOT_USER=minioadmin" \
     -e "MINIO_ROOT_PASSWORD=minioadmin" \
     quay.io/minio/minio server /data --console-address ":9001"
-else
-  echo "MinIO container is already running."
 fi
 
 echo "MinIO should now be available at: http://localhost:9001 (user/pass: minioadmin)"
